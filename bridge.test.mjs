@@ -96,3 +96,25 @@ test('callback targets reject unsafe schemes, credentials, ports, fragments and 
   for (const ip of ['127.0.0.1', '10.0.0.1', '100.64.0.1', '169.254.169.254', '172.16.0.1', '192.168.1.1', '192.0.2.1', '198.18.0.1', '224.0.0.1', '::1']) assert.equal(publicAddress(ip), false);
   assert.equal(publicAddress('8.8.8.8'), true);
 });
+
+test('MCP 2026-07-28 successful results consistently declare complete', async () => {
+  const {call,bridge,deliveries}=setup();
+  for (const method of ['server/discover','initialize','ping','events/list','tools/list']) {
+    assert.equal((await call(method)).body.result.resultType,'complete',method);
+  }
+  assert.equal((await call('events/subscribe',subscribe)).body.result.resultType,'complete');
+  await bridge.handle('POST','/proof',headers,{});
+  assert.equal((await call('tools/call',{name:'acknowledge_probe',arguments:deliveries[1].data})).body.result.resultType,'complete');
+  assert.equal((await call('events/unsubscribe',subscribe)).body.result.resultType,'complete');
+});
+
+test('authentication delay cannot acknowledge a probe after its subscription expires',async()=>{
+  let time=baseTime;
+  let delay=false;
+  const s=setup({now:()=>time,authorize:async()=>{if(delay) time+=1500;return {principal:{subject:'fixture-owner'}};}});
+  await s.call('events/subscribe',{...subscribe,ttlMs:1000});
+  await s.bridge.handle('POST','/proof',headers,{});
+  delay=true;
+  const result=await s.call('tools/call',{name:'acknowledge_probe',arguments:s.deliveries[1].data});
+  assert.ok(result.body.error,'expired proof must not be acknowledged after awaited authorization');
+});

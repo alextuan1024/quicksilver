@@ -79,6 +79,9 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
     if (!available) return reply(503, { error: 'disabled_or_expired' });
     if (authorize) { const auth = await authorize(headers); if (!auth.principal) return auth; }
     else if (!equal(headers.authorization, `Bearer ${key}`)) return reply(401, { error: 'unauthorized' });
+    // Authentication can await JWKS/network work. Recheck session and subscription
+    // lifetime at the mutation boundary so expired proofs cannot be acknowledged.
+    if (!active()) return reply(503, { error: 'disabled_or_expired' });
     if (path === '/proof') {
       if (method === 'GET') return reply(200, { subscription: Boolean(subscription), state: proof?.state ?? 'not_started', proof_id: proof?.id ?? null });
       if (method !== 'POST') return reply(405, { error: 'method_not_allowed' });
@@ -100,7 +103,7 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
     const { id, method: rpcMethod, params = {} } = body;
     if (rpcMethod === 'notifications/initialized') return reply(202, null);
     if (id === undefined) return failure(null, -32600, 'Request id required');
-    const success = result => reply(200, { jsonrpc: '2.0', id, result });
+    const success = result => reply(200, { jsonrpc: '2.0', id, result: { resultType: 'complete', ...result } });
     if (rpcMethod === 'server/discover') return success({ resultType: 'complete', supportedVersions: ['2026-07-28'], capabilities: { tools: {}, events: {} } });
     if (rpcMethod === 'initialize') return success({ protocolVersion: '2026-07-28', capabilities: { tools: {}, events: {} }, serverInfo: { name: 'quicksilver', version: '0.1.0' } });
     if (rpcMethod === 'ping') return success({});
