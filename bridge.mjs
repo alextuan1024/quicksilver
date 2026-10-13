@@ -54,10 +54,10 @@ export async function postCallback(value, body, headers) {
   });
 }
 
-export function createBridge({ key, expiresAt, now = Date.now, postCallback: post = postCallback } = {}) {
+export function createBridge({ key, authorize, expiresAt, now = Date.now, postCallback: post = postCallback } = {}) {
   const startedAt = now();
   const configuredExpiry = Date.parse(expiresAt);
-  const enabled = typeof key === 'string' && key.length >= 32 && Number.isFinite(configuredExpiry) && configuredExpiry > startedAt && configuredExpiry <= startedAt + MAX_SESSION_MS;
+  const enabled = (typeof authorize === 'function' || (typeof key === 'string' && key.length >= 32)) && Number.isFinite(configuredExpiry) && configuredExpiry > startedAt && configuredExpiry <= startedAt + MAX_SESSION_MS;
   let subscription = null;
   let proof = null;
   let busy = false;
@@ -77,7 +77,8 @@ export function createBridge({ key, expiresAt, now = Date.now, postCallback: pos
     const available = active();
     if (method === 'GET' && path === '/healthz') return reply(200, { service: 'quicksilver', mode: available ? 'synthetic-session' : 'disabled', syntheticOnly: true });
     if (!available) return reply(503, { error: 'disabled_or_expired' });
-    if (!equal(headers.authorization, `Bearer ${key}`)) return reply(401, { error: 'unauthorized' });
+    if (authorize) { const auth = await authorize(headers); if (!auth.principal) return auth; }
+    else if (!equal(headers.authorization, `Bearer ${key}`)) return reply(401, { error: 'unauthorized' });
     if (path === '/proof') {
       if (method === 'GET') return reply(200, { subscription: Boolean(subscription), state: proof?.state ?? 'not_started', proof_id: proof?.id ?? null });
       if (method !== 'POST') return reply(405, { error: 'method_not_allowed' });
