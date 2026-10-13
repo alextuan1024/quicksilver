@@ -55,7 +55,12 @@ normalization into the existing controller. The controller's checks still apply.
 Token exchange is only a prepared code path: **it has never been run with real
 credentials.** Its wait is bounded to five seconds; late results are discarded.
 No auto-renewal occurs. Token expiry minus five seconds or the approved session
-expiry, whichever comes first, closes the stream and client. Cloud origin and
+expiry, whichever comes first, closes the stream and client. Stream error/end or
+earlier token expiry synchronously notifies the controller before cleanup awaits,
+invalidates its pending request, and exposes a terminal state instead of stale
+listening/awaiting status. Closure during a send preserves `unknown_outcome`,
+even if the original RPC later resolves successfully. Normal accepted replies
+retain their result through intentional cleanup. Cloud origin and
 managed gRPC endpoints are fixed/validated, not arbitrary operator URLs.
 Shared routing uses the literal `shared`, not the displayed managed number.
 Dedicated routing must uniquely match the configured number in the authenticated

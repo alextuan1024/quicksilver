@@ -43,20 +43,26 @@ function accepted(event,config,armedAt,now) {
 // by environment/HTTP/tool input. No Spectrum instance or provider is created.
 export function createPhotonTransport({config={},projectSecret,expiresAt,now=Date.now,sdkLoader=loadSdk}={}) {
  const route=Object.freeze({...config});
- let client,stream,timer,stopped=false,started=false,received=false,sent=false,tokenDeadline=0;
+ let client,stream,timer,stopped=false,started=false,received=false,sent=false,tokenDeadline=0,onTerminal=()=>{};
  const deadline=Date.parse(expiresAt);
- async function stop(){
-  stopped=true;clearTimeout(timer);
+ async function stop(reason='stopped'){
+  if(!stopped){
+   stopped=true;
+   // Notify synchronously before cleanup awaits. This invalidates the request
+   // even if a provider close is slow, and preserves uncertain in-flight sends.
+   try{onTerminal(reason);}catch{/* No provider/request data is passed or logged. */}
+  }
+  clearTimeout(timer);
   const currentStream=stream,currentClient=client;stream=undefined;client=undefined;
   await Promise.allSettled([currentStream?.close(),currentClient?.close()]);
  }
- return {stop,async start(receive,isActive=()=>true) {
+ return {stop,async start(receive,isActive=()=>true,terminal=()=>{}) {
   const armedAt=now();
   if(started || stopped || route.projectId!==PROJECT_ID || !projectSecret || !isActive() ||
    !/^\+[1-9]\d{7,14}$/.test(route.ownerAddress??'') || route.dm!==`any;-;${route.ownerAddress}` ||
    !Number.isFinite(deadline) || deadline<=armedAt || deadline>armedAt+3600_000)throw Error('transport_unavailable');
   if(sdkLoader===loadSdk && !PHOTON_LIVE_TRANSPORT_ALLOWED)throw Error('live_transport_locked');
-  started=true;
+  started=true;onTerminal=terminal;
   const active=()=>!stopped && isActive() && now()<deadline && (!tokenDeadline || now()<tokenDeadline);
   try {
    const {issueTokens,createClient}=await sdkLoader();if(!active())return;
@@ -71,13 +77,14 @@ export function createPhotonTransport({config={},projectSecret,expiresAt,now=Dat
    const remaining=tokenDeadline-now();
    client=createClient({address:line.address,token:line.token,tls:true,retry:false,autoIdempotency:true,
     channelOptions:{'grpc.enable_retries':0},timeout:Math.min(5000,remaining)});
-   timer=setTimeout(()=>{void stop();},remaining);timer.unref?.();
+   timer=setTimeout(()=>{void stop(tokenDeadline<deadline?'token_expired':'session_expired');},remaining);timer.unref?.();
    stream=client.messages.subscribeEvents({chat:route.dm});
    const source=stream,sessionClient=client;
    const loop=(async()=>{
+    let reason='transport_ended';
     try {
      for await(const event of source) {
-      if(!active())break;
+      if(!active()){reason=now()>=tokenDeadline?(tokenDeadline<deadline?'token_expired':'session_expired'):'stopped';break;}
       if(received || !accepted(event,route,armedAt,now()))continue;
       received=true;
       const message=event.message,guid=message.guid,dm=route.dm,writeId=randomUUID();
@@ -93,9 +100,9 @@ export function createPhotonTransport({config={},projectSecret,expiresAt,now=Dat
        }};
       await receive(space,bound);
      }
-    }catch{/* Never expose provider error bodies or reconnect/catch up. */}
-    finally{await stop();}
+    }catch{reason='transport_error'; /* Never expose errors or reconnect/catch up. */}
+    finally{await stop(reason);}
    })();void loop.catch(()=>{});
-  }catch{await stop();throw Error('transport_start_failed');}
+  }catch{await stop('transport_failed');throw Error('transport_start_failed');}
  }};
 }

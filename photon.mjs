@@ -17,18 +17,25 @@ export const photonTools=[
 ];
 
 // No env credentials are read here. Production supplies no transport while the
-// pinned provider's retries and automatic contact sharing remain unresolved.
+// reviewed direct-client adapter awaits secure setup and live authorization.
 export function createPhotonTest({config={},transport,ready=()=>false,publish,expiresAt,now=Date.now}={}) {
  const boot_id=randomUUID(), started=now(), deadline=Date.parse(expiresAt);
  const configured=config.projectId===PROJECT_ID && /^\+[1-9]\d{7,14}$/.test(config.ownerAddress??'') &&
   typeof config.line==='string' && config.line.length>0 && typeof config.dm==='string' && config.dm.length>0 &&
   Number.isFinite(deadline) && deadline>started && deadline<=started+3600_000;
- let state='disarmed', used=false, request, armedAt, timer;
- const active=()=>configured && now()<deadline && ready();
+ let state='disarmed', used=false, request, armedAt, timer, terminated=false;
+ const active=()=>!terminated && configured && now()<deadline && ready();
  const status=()=>({boot_id,state,transport:transport?'fixture_or_reviewed_transport':'locked',configured:Boolean(configured),
   deadline:Number.isFinite(deadline)?new Date(deadline).toISOString():null});
  async function close() {clearTimeout(timer);try{await transport?.stop();}catch{/* Never log provider errors. */}}
- async function stop() {state='stopped';request=undefined;await close();}
+ function terminal(reason) {
+  terminated=true;clearTimeout(timer);request=undefined;
+  if(state==='sending')state='unknown_outcome';
+  else if(!['provider_accepted','unknown_outcome','callback_unknown','callback_rejected','transport_failed','stopped',
+    'transport_ended','transport_error','token_expired','session_expired'].includes(state))
+   state=['transport_ended','transport_error','token_expired','session_expired','transport_failed','stopped'].includes(reason)?reason:'transport_error';
+ }
+ async function stop() {terminal('stopped');await close();}
  async function receive(space,message) {
   if(state!=='listening' || !active())return;
   const timestamp=message.timestamp instanceof Date?message.timestamp.getTime():NaN;
@@ -58,8 +65,8 @@ export function createPhotonTest({config={},transport,ready=()=>false,publish,ex
    if(!exact(args,['boot_id']) || args.boot_id!==boot_id || !active() || !transport || used)return {state:'unavailable'};
    used=true;armedAt=now();state='listening';
    timer=setTimeout(()=>{void stop();},Math.max(1,deadline-now()));timer.unref?.();
-   try{await transport.start(receive,()=>active() && !['stopped','provider_accepted','unknown_outcome','callback_unknown','callback_rejected','transport_failed'].includes(state));if(!active() || state==='stopped')await stop();}
-   catch{state='transport_failed';request=undefined;await close();}
+   try{await transport.start(receive,()=>active() && !['stopped','provider_accepted','unknown_outcome','callback_unknown','callback_rejected','transport_failed'].includes(state),terminal);if(!active() || state==='stopped')await stop();}
+   catch{terminal('transport_failed');await close();}
    return {state};
   }
   if(name==='reply_photon_test') {
