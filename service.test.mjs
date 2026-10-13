@@ -44,3 +44,40 @@ test('synthetic trigger remains exact-owner gated and expires with the bounded s
  time+=60_001;
  assert.equal((await service.handle('POST','/mcp',headers,trigger)).status,503);
 });
+
+test('Photon event and fixed reply share owner OAuth; deployed default cannot arm',async()=>{
+ const service=createService(config);
+ const call=(name,args,h=headers)=>service.handle('POST','/mcp',h,{jsonrpc:'2.0',id:3,method:'tools/call',params:{name,arguments:args}});
+ const status=(await call('photon_test_status',{})).body.result.structuredContent;
+ assert.equal(status.transport,'locked');assert.equal(status.configured,false);
+ assert.equal((await call('arm_photon_test',{boot_id:status.boot_id})).body.result.structuredContent.state,'unavailable');
+ assert.equal((await call('photon_test_status',{},{})).status,401);
+ assert.equal((await call('reply_photon_test',{request_id:'forged'})).body.result.structuredContent.state,'unavailable');
+});
+
+test('fixture owner DM reaches signed event and one request-bound reply through MCP',async()=>{
+ const {PROJECT_ID,INCOMING_TEXT,REPLY_TEXT}=await import('./photon.mjs');
+ const {createHmac}=await import('node:crypto');
+ let receive,sends=0;const deliveries=[],signingBytes=Buffer.alloc(32,9);
+ const service=createService({...config,photon:{projectId:PROJECT_ID,ownerAddress:'+15550000001',line:'fixture-line',dm:'fixture-dm'},
+  photonTransport:{start:async callback=>{receive=callback;},stop:async()=>{}},
+  postCallback:async(url,raw,headers,options)=>{
+   assert.equal(options.isActive(),true);assert.equal(url,'https://callback.example.com/photon');
+   assert.equal(headers['webhook-signature'],'v1,'+createHmac('sha256',signingBytes).update(`${headers['webhook-id']}.${headers['webhook-timestamp']}.${raw}`).digest('base64'));
+   const body=JSON.parse(raw);deliveries.push(body);return {status:200,body:{challenge:body.challenge}};
+  }});
+ const rpc=(method,params)=>service.handle('POST','/mcp',headers,{jsonrpc:'2.0',id:4,method,params});
+ const call=async(name,args)=>(await rpc('tools/call',{name,arguments:args})).body.result.structuredContent;
+ const boot_id=(await call('photon_test_status',{})).boot_id;
+ assert.equal((await call('arm_photon_test',{boot_id})).state,'unavailable');
+ await rpc('events/subscribe',{name:'photon.test.received',arguments:{session:'quicksilver'},delivery:{mode:'webhook',url:'https://callback.example.com/photon',secret:'whsec_'+signingBytes.toString('base64')}});
+ assert.equal((await call('arm_photon_test',{boot_id})).state,'listening');
+ const space={id:'fixture-dm',type:'dm',phone:'fixture-line',__platform:'imessage'};
+ await receive(space,{space,id:'fixture-incoming',platform:'imessage',direction:'inbound',timestamp:new Date(now*1000),
+  sender:{address:'+15550000001',service:'iMessage'},content:{type:'text',text:INCOMING_TEXT},
+  reply:async text=>{assert.equal(text,REPLY_TEXT);sends++;return {id:'fixture-outgoing'};}});
+ assert.equal(deliveries.length,2);assert.equal(deliveries[1].name,'photon.test.received');
+ const args={request_id:deliveries[1].data.request_id};
+ assert.equal((await call('reply_photon_test',args)).state,'provider_accepted');
+ await call('reply_photon_test',args);assert.equal(sends,1);await service.stop();
+});

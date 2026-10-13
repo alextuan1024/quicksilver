@@ -33,4 +33,4 @@ const server = createServer(async (request, response) => {
 server.requestTimeout = 10_000;
 server.headersTimeout = 10_000;
 server.listen(Number(process.env.PORT ?? 10000), process.env.RENDER ? '0.0.0.0' : '127.0.0.1', () => console.log(`quicksilver port=${server.address().port}; OAuth metadata available; owner/session gate enforced`));
-process.on('SIGTERM', () => server.close());
+process.on('SIGTERM', () => { void service.stop(); server.close(); });

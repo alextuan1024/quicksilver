@@ -1,15 +1,18 @@
 # Quicksilver
 
-Temporary synthetic MCP Events connection proof. No Photon integration, phone data,
-real messages, external LLM, or general send tool. Authenticated discovery succeeded;
-the live synthetic event/acknowledgment round trip remains unverified.
+Temporary MCP Events connection proof and disabled one-owner Photon test adapter.
+No external LLM or general send tool. The deployed entry point has no Photon
+credentials or transport configuration and cannot connect to Photon.
 
 ## Current state
 
-OAuth metadata and 401 discovery are implemented. The owner/session gate is CLOSED
-until the user completes application Google login, the exact issuer/subject is
-verified, and an explicit absolute session deadline is configured. No first-login
-auto-enrollment. Public metadata does not grant access.
+The parent reported the synthetic event reaching existing Athena and its matching
+acknowledgment on 2026-10-13. This repository did not independently verify that
+live round trip. The previous owner/session deadline has expired.
+The disabled Photon controller, MCP event, request-bound fixed reply tool and
+Spectrum SDK contract adapter are implemented. **No live Photon integration has
+been run; the production SDK transport is compile-time locked pending review.**
+See [PHOTON_TEST.md](PHOTON_TEST.md) for exact gates and credential handoff.
 
 - Resource: `https://quicksilver-kvt8.onrender.com/mcp`
 - Issuer: `https://dev-ar7fhtveuwv8gobu.us.auth0.com/`
@@ -33,7 +36,7 @@ callback shown by ChatGPT after metadata discovery, without a wildcard.
 Node 22. `npm ci --ignore-scripts --no-audit --no-fund`, `node --test`,
 `node scan.mjs`, then `node server.mjs`. Render Free build uses the install,
 tests and scan commands; start `node server.mjs`; health `/healthz`. No database
-or disk, auto-deploy off. Source and lockfile pin `jose` 6.2.12.
+or disk, auto-deploy off. Source and lockfile pin `jose` 6.2.12 and both Spectrum packages at 12.10.1.
 
 `jose.jwtVerify` validates RS256 signature against issuer-pinned JWKS, issuer,
 audience, RFC 9068 token type, required claims, expiry, and bounded token lifetime.
@@ -43,7 +46,7 @@ session windows are rejected. Tokens and callback secrets are not logged.
 
 Set `QUICKSILVER_OWNER_SUBJECT` only after verifying the user's exact Auth0 app
 identity. Set `QUICKSILVER_SESSION_EXPIRES_AT` to an approved absolute UTC deadline
-at most one hour from startup. Neither value exists in the initial deployment.
+at most one hour from startup. The existing owner value is retained; its previous deadline is expired.
 Legacy `QUICKSILVER_API_KEY` is ignored by the server. Static fixture auth in the
 bridge module is used only by local contract tests.
 

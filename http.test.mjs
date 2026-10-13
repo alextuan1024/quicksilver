@@ -17,7 +17,9 @@ test(`real HTTP OAuth server stays owner-locked with legacy key configured=${leg
     const match = line.toString().match(/port=(\d+)/);
     assert.ok(match, 'startup must report actual listening port without credentials');
     const url = `http://127.0.0.1:${match[1]}`;
-    assert.equal((await (await fetch(url + '/healthz')).json()).mode, 'disabled');
+    const health=await (await fetch(url + '/healthz')).json();
+    assert.equal(health.mode,'disabled');assert.equal(health.photon,'disabled');
+    assert.equal(health.photonTransport,'locked_pending_sdk_review');
     const metadata = await fetch(url + '/.well-known/oauth-protected-resource/mcp');
     assert.equal(metadata.status,200);
     assert.deepEqual((await metadata.json()).scopes_supported,['quicksilver:probe']);

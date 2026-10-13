@@ -57,7 +57,8 @@ export async function postCallback(value, body, headers, { isActive = () => true
   });
 }
 
-export function createBridge({ key, authorize, expiresAt, now = Date.now, postCallback: post = postCallback } = {}) {
+export function createBridge({ key, authorize, expiresAt, now = Date.now, postCallback: post = postCallback, event = eventDefinition, tools, onTool } = {}) {
+  const EVENT = event.name;
   const startedAt = now();
   const configuredExpiry = Date.parse(expiresAt);
   const enabled = (typeof authorize === 'function' || (typeof key === 'string' && key.length >= 32)) && Number.isFinite(configuredExpiry) && configuredExpiry > startedAt && configuredExpiry <= startedAt + MAX_SESSION_MS;
@@ -91,7 +92,16 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
     if (!unchanged()) return reply(409, { error: 'session_changed' });
     return reply(200, { proof_id: current.id, state: current.state });
   }
-  return { async handle(method, path, headers, body) {
+  return {
+    hasSubscription: () => active() && Boolean(subscription) && !busy,
+    async publish(data, guard = () => true) {
+      if (!active() || !subscription || busy || !guard()) return false;
+      const target = subscription, id = randomUUID();
+      const unchanged = () => active() && subscription === target && guard();
+      const result = await deliver(target, {eventId:id,name:EVENT,timestamp:new Date(now()).toISOString(),data,cursor:null},id,unchanged);
+      return unchanged() && result.status >= 200 && result.status < 300;
+    },
+    async handle(method, path, headers, body) {
     const available = active();
     if (method === 'GET' && path === '/healthz') return reply(200, { service: 'quicksilver', mode: available ? 'synthetic-session' : 'disabled', syntheticOnly: true });
     if (!available) return reply(503, { error: 'disabled_or_expired' });
@@ -101,6 +111,7 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
     // lifetime at the mutation boundary so expired proofs cannot be acknowledged.
     if (!active()) return reply(503, { error: 'disabled_or_expired' });
     if (path === '/proof') {
+      if (tools) return reply(403, {error:'operator_trigger_not_configured'});
       if (method === 'GET') return reply(200, { subscription: Boolean(subscription), state: proof?.state ?? 'not_started', proof_id: proof?.id ?? null });
       if (method !== 'POST') return reply(405, { error: 'method_not_allowed' });
       if (!exact(body, [])) return reply(400, { error: 'no_input_allowed' });
@@ -117,8 +128,8 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
     if (rpcMethod === 'server/discover') return success({ resultType: 'complete', supportedVersions: ['2026-07-28'], capabilities: { tools: {}, events: {} } });
     if (rpcMethod === 'initialize') return success({ protocolVersion: '2026-07-28', capabilities: { tools: {}, events: {} }, serverInfo: { name: 'quicksilver', version: '0.1.0' } });
     if (rpcMethod === 'ping') return success({});
-    if (rpcMethod === 'events/list') return success({ events: [eventDefinition] });
-    if (rpcMethod === 'tools/list') return success({ tools: [toolDefinition, triggerDefinition] });
+    if (rpcMethod === 'events/list') return success({ events: [event] });
+    if (rpcMethod === 'tools/list') return success({ tools: tools ?? [toolDefinition, triggerDefinition] });
     if (rpcMethod === 'events/subscribe' || rpcMethod === 'events/unsubscribe') {
       if (params.name !== EVENT || !exact(params.arguments, ['session']) || params.arguments.session !== 'quicksilver' || params.delivery?.mode !== 'webhook') return failure(id, -32602, 'Unsupported subscription');
       let url;
@@ -146,6 +157,11 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
     }
     if (rpcMethod === 'tools/call') {
       const args = params.arguments;
+      if (tools) {
+        if (!tools.some(tool => tool.name === params.name)) return failure(id,-32602,'Unknown tool');
+        const result = await onTool(params.name,args);
+        return success({content:[{type:'text',text:JSON.stringify(result)}],structuredContent:result,isError:result.state==='unavailable'});
+      }
       if (params.name === 'trigger_synthetic_probe') {
         if (!exact(args, []) || !subscription || busy || (spent && !proof)) return failure(id, -32602, 'No active subscription or probe unavailable');
         const outcome = proof ? reply(200, {proof_id:proof.id,state:proof.state}) : await emitProof();
