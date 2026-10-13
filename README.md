@@ -10,7 +10,7 @@ The parent reported the synthetic event reaching existing Athena and its matchin
 acknowledgment on 2026-10-13. This repository did not independently verify that
 live round trip. The previous owner/session deadline has expired.
 The disabled Photon controller, MCP event, request-bound fixed reply tool and
-Spectrum SDK contract adapter are implemented. **No live Photon integration has
+direct Photon SDK adapter are implemented. **No live Photon integration has
 been run; the production SDK transport is compile-time locked pending review.**
 See [PHOTON_TEST.md](PHOTON_TEST.md) for exact gates and credential handoff.
 
@@ -36,7 +36,7 @@ callback shown by ChatGPT after metadata discovery, without a wildcard.
 Node 22. `npm ci --ignore-scripts --no-audit --no-fund`, `node --test`,
 `node scan.mjs`, then `node server.mjs`. Render Free build uses the install,
 tests and scan commands; start `node server.mjs`; health `/healthz`. No database
-or disk, auto-deploy off. Source and lockfile pin `jose` 6.2.12 and both Spectrum packages at 12.10.1.
+or disk, auto-deploy off. Source and lockfile pin `jose` 6.2.12 and both Spectrum packages at 12.10.1 and the direct Photon SDK at 2.2.0.
 
 `jose.jwtVerify` validates RS256 signature against issuer-pinned JWKS, issuer,
 audience, RFC 9068 token type, required claims, expiry, and bounded token lifetime.

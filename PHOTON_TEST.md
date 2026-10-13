@@ -13,8 +13,8 @@ Reply text: `Athena received your connection test.`
 imessage platform and service, plain text, timestamp since activation, and excludes
 groups, echoes, automatic/system/spam/corrupt messages and multipart parents.
 It reserves the receive slot before async delivery, emits `photon.test.received`
-with only a random request ID and the fixed text, and retains the original bound
-message reply method privately. The reply tool accepts only that request ID.
+with only a random request ID and the fixed text, and retains a reply closure bound to the captured
+inbound DM and message GUID privately. The reply tool accepts only that request ID.
 No caller-supplied text or destination is accepted. Phone/DM identifiers and raw
 provider errors are not logged or included in the event/tool result.
 
@@ -36,41 +36,63 @@ This fail-closed guard needs no disk; it does not provide durable exactly-once o
 automatic recovery across separately approved sessions. Production durability
 would require a separately reviewed store and design, not silently paid storage.
 
-`createSpectrumTransport` awaits Spectrum's async factory, preserves original
-space/message bindings, disables SDK telemetry and logs, and closes late startup
-or completed streams. Its API is exercised using injected in-process fixtures;
-real pinned SDK exports/configuration are imported offline. **No network calls to
-Photon or real messages occur in these tests.** OAuth, signed callback and reply
-are joined in a local contract test, not a live integration test.
+`createPhotonTransport` uses public `@photon-ai/advanced-imessage/grpc` APIs
+for both directions. It exchanges the exact project's secret using Spectrum's
+exported `cloud.issueImessageTokens` helper, selects only the configured line,
+and subscribes with `messages.subscribeEvents({chat: exactDM})`. No Spectrum
+instance or iMessage provider is created. No profile/contact, account-settings,
+chat-creation, typing, read-receipt, reconnect or catch-up method is called.
 
-## Blocking SDK findings
+The direct client sets TLS, `retry:false`, `autoIdempotency:true`,
+`channelOptions:{'grpc.enable_retries':0}` and a bounded unary timeout. The
+single captured reply calls `messages.sendText` with the captured DM/message GUID,
+a stable per-request UUID, fixed reply text, and link preview/data detection off.
+Both event and message must explicitly be inbound (`isFromMe===false`). Text,
+owner/service, exact chat IDs, fresh timestamp, normal item type and no app,
+attachments, automatic/system/spam/corrupt/multipart content are checked before
+normalization into the existing controller. The controller's checks still apply.
 
-The published MIT packages `@spectrum-ts/core` and `@spectrum-ts/imessage` 12.10.1
-were installed with lifecycle scripts disabled and exact lockfile versions.
-Inspection of `@spectrum-ts/imessage/dist/index.js` found:
+Token exchange is only a prepared code path: **it has never been run with real
+credentials.** Its wait is bounded to five seconds; late results are discarded.
+No auto-renewal occurs. Token expiry minus five seconds or the approved session
+expiry, whichever comes first, closes the stream and client. Cloud origin and
+managed gRPC endpoints are fixed/validated, not arbitrary operator URLs.
+Shared routing uses the literal `shared`, not the displayed managed number.
+Dedicated routing must uniquely match the configured number in the authenticated
+token response. Parent must verify the displayed owner/managed-line association
+in Photon; shared tokens do not independently attest to that displayed number.
 
-- Both cloud-token and explicit-client construction hard-code `retry: true` and
-  `autoIdempotency: true`. The strict provider config exposes only `clients` and
-  has no retry override. Underlying `@photon-ai/advanced-imessage/grpc` exposes
-  `retry: false`, but Spectrum does not forward it through its public config.
-  Stable auto-idempotency helps, but transport retries/unknown remote execution
-  must be reviewed before promising a strictly one-attempt send.
-- Cloud authentication registers a profile-sync gate; the receive stream can
-  automatically share the project's contact card when profile sync is enabled,
-  before this adapter's owner filter sees a message. Do not assume the project
-  setting, change it, or allow extra sends under this one-reply approval.
+## Retry/profile findings and supported resolution
 
-Consequently `SPECTRUM_LIVE_TRANSPORT_ALLOWED=false` is a source-level lock with no
-HTTP/MCP/environment override. `server.mjs` does not read Photon secret/routing
-fields or attach a Photon transport. Setting environment credentials alone cannot
-activate it. No secret fields were added to Render. Removing this lock is NOT an
-operator setup step: first provide a supported no-extra-side-effect transport or
-reviewed provider change, with tests for retry and contact-sharing behavior.
-Do not patch node_modules or use internal runtime objects as a workaround.
+Original MIT packages: Spectrum core/provider 12.10.1; Photon SDK 2.2.0. All are
+exact lockfile dependencies. No vendor patch, internal monkey-patch or copied
+vendor source is used in the replacement. See [SDK_REVIEW.md](SDK_REVIEW.md) for
+source locations, exact retry conditions, original-SDK loopback observations,
+licensing/maintenance assessment and remaining live verification limits.
+
+The earlier gate was conservative: `retry:true` is not proof of duplicate sends.
+The middleware intends to retry only server-marked failures, with a default
+maximum of four attempts; generic unmarked ambiguous network errors are not
+selected by that middleware. In the pinned installation's real loopback test,
+a marked trailer produced ONE request and a final `retryable:true` error; the
+trailer capture is outside retry middleware. We do not rely on that ordering or
+claim a universal SDK guarantee. The replacement explicitly disables both retry
+layers regardless. Pre-send retries should not be characterized as duplication.
+
+The Spectrum provider's contact-share callback runs on non-self
+`message.received` events before application filtering when profile sync is true.
+The direct SDK replacement does not create that provider and therefore never
+installs that callback. No Photon profile/account-setting change is required.
+
+`PHOTON_LIVE_TRANSPORT_ALLOWED=false` remains a source-level lock with no env/MCP
+override. `server.mjs` still neither reads Photon credentials nor attaches any
+Photon transport. Credentials alone cannot enable it. Independent review, future
+wiring and explicit live authorization remain necessary. This code has only
+fixture and loopback RPC evidence, not Photon server acceptance or iMessage proof.
 
 ## Next secure handoff and live go/no-go gates
 
-1. Resolve the SDK issues above using supported APIs or a reviewed change; wire
+1. Independently review the supported direct-client fix and its local tests; wire
    the reviewed transport into the server in a new tested deployment. Reassess
    any provider account/plan/cost requirement with the owner before proceeding.
 2. Parent/user verify the exact registered owner E.164 address, managed line's
