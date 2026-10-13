@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { createService } from './service.mjs';
+import { requestSummary } from './diagnostics.mjs';
 
 // Public OAuth coordinates only. Secrets stay with Auth0/ChatGPT. Owner and absolute
 // deadline must be explicitly configured after the owner's application login.
@@ -24,6 +25,8 @@ const server = createServer(async (request, response) => {
     let body = {};
     if (raw) { try { body = JSON.parse(raw); } catch { response.writeHead(400).end('{"error":"invalid_json"}'); return; } }
     const result = await service.handle(request.method, request.url, request.headers, body);
+    const diagnostic = requestSummary(request.method,request.url,body,request.headers,result);
+    if (diagnostic) console.log(JSON.stringify(diagnostic));
     response.writeHead(result.status, result.headers ?? {}).end(result.body === null ? '' : JSON.stringify(result.body));
   } catch { response.writeHead(500).end('{"error":"request_failed"}'); }
 });
