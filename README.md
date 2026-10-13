@@ -5,9 +5,10 @@ phone data, real messages, external LLM, or general send tool.
 
 ## Current deployment mode
 
-**Disabled, health-only.** With no configured authentication, `/healthz` returns
-200 and every control request returns 503. Do not change this until the user
-approves the authentication mechanism and its specific access scope.
+**Disabled, health-only.** `/healthz` returns 200 and every control request returns
+503. The deployed entrypoint deliberately ignores the former static-key environment
+variables. Enabling it requires implementing and verifying the OAuth adapter below,
+plus separate approval for the concrete authentication setup and access scope.
 
 Run `node --test`, `node scan.mjs`, and `node server.mjs`. No package installation
 is necessary. Use Node 22 on Render. Build: `node --test bridge.test.mjs && node scan.mjs`.
@@ -15,20 +16,63 @@ Start: `node server.mjs`. Health check: `/healthz`. Choose Free, no database or 
 
 ## Authentication gate
 
-The test implementation accepts an Authorization bearer key, but **compatibility
-with ChatGPT custom-server authentication is not yet verified**. The official
-plugin authentication guide expects OAuth 2.1. If the account UI does not support
-API-key/custom-header authentication, stop; implement a supported OAuth flow only
-after its separate setup is agreed. Never switch to an unauthenticated endpoint.
+The static bearer key in `bridge.mjs` is **only a local contract-test fixture**.
+ChatGPT's authentication documentation explicitly says it cannot present custom
+API keys. Its custom MCP guide documents OAuth, No authentication, and OAuth or
+no authentication. Static credentials in the OAuth option mean OAuth client
+credentials, not a key for this server. See the linked official references below.
+Generic plugin-manifest API-key support does not establish support in ChatGPT's
+custom MCP connection flow. Never switch this proof to an unauthenticated endpoint.
 
-After action-time approval, the operator would configure a fresh random value of
-at least 32 bytes as `QUICKSILVER_API_KEY` through Render's secret UI and the
-matching supported plugin authentication field. Do not paste it into a chat,
-repository, URL, or command arguments. `QUICKSILVER_SESSION_EXPIRES_AT` must be an
-absolute ISO time in the next hour; missing, invalid, expired, or longer lifetimes
-disable the service. No deployment credential has been generated or configured.
+No OAuth authorization server, client, credential, or grant has been configured.
+The actual private setup UI could not be inspected: the local browser was signed
+out and desktop-app inspection was blocked. Unit/contract tests do not establish
+ChatGPT compatibility or live integration readiness.
 
-## Bounded proof flow (after authentication approval)
+### Minimum next setup and implementation
+
+Use an existing trusted OAuth authorization server if available, or separately
+approve a managed provider. A self-hosted login/consent/token service would add
+unnecessary security scope to this proof; no auto-approve or fake login endpoint
+will be added. A provider is not selected yet, so provider-dependent code is paused.
+
+Before implementing the resource adapter, resolve these exact inputs:
+
+- Final HTTPS resource URL and canonical issuer, its discovery metadata and token
+  validation mechanism (JWKS for signed access tokens, or protected introspection
+  for opaque tokens). Use a maintained provider SDK or JOSE implementation.
+- Authorization code flow with PKCE S256; metadata must advertise S256. The
+  provider must honor the exact `resource` parameter and issue resource-bound
+  access tokens. A generic Google/GitHub login token is not enough.
+- One allowed owner identified by the immutable issuer + subject pair, and a
+  narrowly defined `quicksilver:probe` scope. Provider login/consent must be real.
+- Choose the supported client registration mechanism. For a pre-registered client,
+  copy the exact redirect URI displayed by ChatGPT's management UI; no wildcard
+  or guessed callback. CIMD is an alternative only if the provider supports it.
+- Define an independently authenticated operator trigger for `/proof`; the MCP
+  token should permit subscription/acknowledgement, not arbitrary proof initiation.
+  Prefer a short-lived operator grant; do not reuse a server API key in ChatGPT.
+
+Then implement protected-resource metadata and a 401 `WWW-Authenticate` discovery
+challenge; validate signature/token activity, issuer, audience, expiry, subject and
+scope before every MCP action. Bind subscriptions and acknowledgements to the
+validated owner. Retain the one-hour maximum proof session and bounded in-memory
+state. Provider metadata is served by the provider, not fabricated by this server.
+
+Tests must reject invalid signature, issuer, resource audience, expired/missing
+expiry, wrong subject/scope, ID tokens, and bypass via the old static key. Test
+discovery and challenges, owner-bound subscription/acknowledgement, and expiry.
+Provider PKCE/resource/redirect enforcement must be verified in an authorized live
+OAuth flow; mocked tokens alone cannot prove it.
+
+Action-time approval is needed before creating the concrete provider/client access,
+entering any client secret into ChatGPT or hosting, and granting the connection.
+The proposal must name the provider/tenant, resource, owner, scope, exact redirect,
+grant lifetime, credential destinations, and teardown. No approval is implied by
+the local tests. After the test, revoke the grant/client as appropriate and remove
+test configuration. Hosting choice and billing approval remain separate gates.
+
+## Intended proof flow (after OAuth implementation, approval, and verification)
 
 1. Connect `/mcp` from the existing Athena. Event: `probe.created`, filter:
    `{"session":"quicksilver"}`. The owner instructs Athena to acknowledge the
@@ -56,5 +100,6 @@ test is **not production MCP Events storage** and cannot prove recovery guarante
 
 - https://developers.openai.com/plugins/build/mcp-events
 - https://developers.openai.com/plugins/build/auth
+- https://developers.openai.com/api/docs/guides/custom-mcp-server
 - https://developers.openai.com/plugins/deploy/connect-chatgpt
 - https://render.com/docs/free

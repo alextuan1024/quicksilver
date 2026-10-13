@@ -1,7 +1,10 @@
 import { createServer } from 'node:http';
 import { createBridge } from './bridge.mjs';
 
-const bridge = createBridge({ key: process.env.QUICKSILVER_API_KEY, expiresAt: process.env.QUICKSILVER_SESSION_EXPIRES_AT });
+// The static bearer key in bridge.mjs is a local contract-test mechanism only.
+// Keep the deployable entrypoint disabled until a supported OAuth resource-server
+// adapter and the approved owner/issuer configuration have been implemented.
+const bridge = createBridge();
 const server = createServer(async (request, response) => {
   response.setHeader('Content-Type', 'application/json');
   response.setHeader('Cache-Control', 'no-store');
@@ -21,5 +24,5 @@ const server = createServer(async (request, response) => {
 });
 server.requestTimeout = 10_000;
 server.headersTimeout = 10_000;
-server.listen(Number(process.env.PORT ?? 10000), process.env.RENDER ? '0.0.0.0' : '127.0.0.1', () => console.log(`quicksilver port=${server.address().port}; synthetic-only; auth required for all controls`));
+server.listen(Number(process.env.PORT ?? 10000), process.env.RENDER ? '0.0.0.0' : '127.0.0.1', () => console.log(`quicksilver port=${server.address().port}; health-only; OAuth setup pending`));
 process.on('SIGTERM', () => server.close());
