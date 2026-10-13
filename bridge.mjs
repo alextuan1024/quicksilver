@@ -11,6 +11,8 @@ const eventDefinition = { name: EVENT, description: 'A single synthetic connecti
   inputSchema: objectSchema({ session: { type: 'string', enum: ['quicksilver'] } }), payloadSchema: proofSchema };
 const toolDefinition = { name: 'acknowledge_probe', description: 'Acknowledge only an active synthetic probe when the user has instructed you to run this connection test. Does not send any message.',
   inputSchema: proofSchema, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false } };
+const triggerDefinition = { name: 'trigger_synthetic_probe', description: 'Emit the one approved synthetic connection test to the verified event subscription. Accepts no message or destination. Call only after explicit user approval. Retries return the existing state without resending. Never automatically retry after a server restart.',
+  inputSchema: objectSchema({}), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true } };
 const equal = (a, b) => typeof a === 'string' && typeof b === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 const exact = (value, names) => value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === names.length && names.every(name => Object.hasOwn(value, name));
 const reply = (status, body) => ({ status, body });
@@ -31,14 +33,15 @@ export function callbackTarget(value) {
       isIP(url.hostname) || url.hostname.includes(':') || !url.hostname.includes('.')) throw new Error('invalid callback');
   return url;
 }
-export async function postCallback(value, body, headers) {
+export async function postCallback(value, body, headers, { isActive = () => true, resolve = resolve4, request = https.request } = {}) {
   const url = callbackTarget(value);
   // Resolve afresh for every connection, reject the entire set if any address is private,
   // and pin the socket to the checked address while retaining hostname TLS verification.
-  const addresses = await resolve4(url.hostname);
+  const addresses = await resolve(url.hostname);
   if (!addresses.length || addresses.some(address => !publicAddress(address))) throw new Error('invalid callback address');
+  if (!isActive()) throw new Error('callback no longer active');
   return new Promise((resolve, reject) => {
-    const req = https.request(url, { method: 'POST', agent: false, headers, family: 4,
+    const req = request(url, { method: 'POST', agent: false, headers, family: 4,
       lookup: (_hostname, options, done) => options.all ? done(null, [{ address: addresses[0], family: 4 }]) : done(null, addresses[0], 4),
     }, response => {
       let text = '';
@@ -61,17 +64,32 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
   let subscription = null;
   let proof = null;
   let busy = false;
+  let spent = false; // Never reset on unsubscribe or subscription expiry within this process.
   function active() {
     if (!enabled || now() >= configuredExpiry) { subscription = null; proof = null; return false; }
     if (subscription && now() >= subscription.expires) { subscription = null; proof = null; }
     return true;
   }
-  async function deliver(target, payload, id) {
+  async function deliver(target, payload, id, isActive = () => active() && now() < target.expires) {
     const body = JSON.stringify(payload);
     const timestamp = String(Math.floor(now() / 1000));
     const signature = createHmac('sha256', Buffer.from(target.secret.slice(6), 'base64')).update(`${id}.${timestamp}.${body}`).digest('base64');
     return post(target.url, body, { 'Content-Type': 'application/json', 'webhook-id': id,
-      'webhook-timestamp': timestamp, 'webhook-signature': `v1,${signature}`, 'X-MCP-Subscription-Id': target.id });
+      'webhook-timestamp': timestamp, 'webhook-signature': `v1,${signature}`, 'X-MCP-Subscription-Id': target.id }, {isActive});
+  }
+  async function emitProof() {
+    spent = true;
+    proof = { id: randomUUID(), nonce: randomUUID(), state: 'sending' };
+    const current = proof;
+    const target = subscription;
+    const unchanged = () => active() && subscription === target && proof === current;
+    try {
+      const result = await deliver(target, { eventId: current.id, name: EVENT, timestamp: new Date(now()).toISOString(), data: { proof_id: current.id, nonce: current.nonce }, cursor: null }, current.id, unchanged);
+      if (!unchanged()) return reply(409, { error: 'session_changed' });
+      if (current.state === 'sending') current.state = result.status >= 200 && result.status < 300 ? 'callback_accepted' : 'callback_rejected';
+    } catch { if (proof === current && current.state === 'sending') current.state = 'unknown_outcome'; }
+    if (!unchanged()) return reply(409, { error: 'session_changed' });
+    return reply(200, { proof_id: current.id, state: current.state });
   }
   return { async handle(method, path, headers, body) {
     const available = active();
@@ -86,16 +104,8 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
       if (method === 'GET') return reply(200, { subscription: Boolean(subscription), state: proof?.state ?? 'not_started', proof_id: proof?.id ?? null });
       if (method !== 'POST') return reply(405, { error: 'method_not_allowed' });
       if (!exact(body, [])) return reply(400, { error: 'no_input_allowed' });
-      if (!subscription || proof || busy) return reply(409, { error: 'no_active_subscription_or_probe_already_started' });
-      proof = { id: randomUUID(), nonce: randomUUID(), state: 'sending' };
-      const current = proof;
-      const target = subscription;
-      try {
-        const result = await deliver(target, { eventId: current.id, name: EVENT, timestamp: new Date(now()).toISOString(), data: { proof_id: current.id, nonce: current.nonce }, cursor: null }, current.id);
-        if (!active() || subscription !== target || proof !== current) return reply(409, { error: 'session_changed' });
-        if (current.state !== 'acknowledged') current.state = result.status >= 200 && result.status < 300 ? 'callback_accepted' : 'callback_rejected';
-      } catch { if (proof === current) current.state = 'unknown_outcome'; }
-      return reply(200, { proof_id: current.id, state: current.state });
+      if (!subscription || spent || busy) return reply(409, { error: 'no_active_subscription_or_probe_already_started' });
+      return emitProof();
     }
     if (path !== '/mcp') return reply(404, { error: 'not_found' });
     if (method !== 'POST') return reply(405, { error: 'method_not_allowed' });
@@ -108,7 +118,7 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
     if (rpcMethod === 'initialize') return success({ protocolVersion: '2026-07-28', capabilities: { tools: {}, events: {} }, serverInfo: { name: 'quicksilver', version: '0.1.0' } });
     if (rpcMethod === 'ping') return success({});
     if (rpcMethod === 'events/list') return success({ events: [eventDefinition] });
-    if (rpcMethod === 'tools/list') return success({ tools: [toolDefinition] });
+    if (rpcMethod === 'tools/list') return success({ tools: [toolDefinition, triggerDefinition] });
     if (rpcMethod === 'events/subscribe' || rpcMethod === 'events/unsubscribe') {
       if (params.name !== EVENT || !exact(params.arguments, ['session']) || params.arguments.session !== 'quicksilver' || params.delivery?.mode !== 'webhook') return failure(id, -32602, 'Unsupported subscription');
       let url;
@@ -136,6 +146,12 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
     }
     if (rpcMethod === 'tools/call') {
       const args = params.arguments;
+      if (params.name === 'trigger_synthetic_probe') {
+        if (!exact(args, []) || !subscription || busy || (spent && !proof)) return failure(id, -32602, 'No active subscription or probe unavailable');
+        const outcome = proof ? reply(200, {proof_id:proof.id,state:proof.state}) : await emitProof();
+        if (outcome.status !== 200) return failure(id, -32000, 'Session changed');
+        return success({content:[{type:'text',text:JSON.stringify(outcome.body)}],structuredContent:outcome.body,isError:false});
+      }
       if (params.name !== 'acknowledge_probe' || !exact(args, ['proof_id', 'nonce']) || !subscription || !proof || !equal(args.proof_id, proof.id) || !equal(args.nonce, proof.nonce)) return failure(id, -32602, 'No matching active synthetic probe');
       proof.state = 'acknowledged';
       const result = { proof_id: proof.id, state: proof.state };

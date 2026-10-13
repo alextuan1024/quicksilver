@@ -40,11 +40,11 @@ test('missing, wrong and expired authentication denies all control access', asyn
   advance(31 * 60_000);
   assert.equal((await bridge.handle('POST', '/mcp', headers, rpc('server/discover'))).status, 503);
 });
-test('MCP discovery exposes only the synthetic event and acknowledgement tool', async () => {
+test('MCP discovery exposes only the synthetic event and bounded proof tools', async () => {
   const { call } = setup();
   assert.deepEqual((await call('server/discover')).body.result.capabilities, { tools: {}, events: {} });
   assert.equal((await call('events/list')).body.result.events[0].name, 'probe.created');
-  assert.deepEqual((await call('tools/list')).body.result.tools.map(t => t.name), ['acknowledge_probe']);
+  assert.deepEqual((await call('tools/list')).body.result.tools.map(t => t.name), ['acknowledge_probe', 'trigger_synthetic_probe']);
 });
 test('verified subscription delivers one signed nonce and accepts only its acknowledgement', async () => {
   const { bridge, call, deliveries } = setup();
@@ -117,4 +117,49 @@ test('authentication delay cannot acknowledge a probe after its subscription exp
   delay=true;
   const result=await s.call('tools/call',{name:'acknowledge_probe',arguments:s.deliveries[1].data});
   assert.ok(result.body.error,'expired proof must not be acknowledged after awaited authorization');
+});
+
+test('trigger requires empty args and verified subscription; retries never emit twice or reveal nonce',async()=>{
+ const s=setup();
+ const trigger=()=>s.call('tools/call',{name:'trigger_synthetic_probe',arguments:{}});
+ assert.ok((await trigger()).body.error);
+ await s.call('events/subscribe',subscribe);
+ assert.ok((await s.call('tools/call',{name:'trigger_synthetic_probe',arguments:{message:'no'}})).body.error);
+ const first=await trigger();
+ assert.equal(first.body.result.structuredContent.state,'callback_accepted');
+ assert.equal(JSON.stringify(first).includes(s.deliveries[1].data.nonce),false);
+ assert.deepEqual(await trigger(),first);
+ assert.equal(s.deliveries.length,2);
+ await s.call('events/unsubscribe',subscribe);
+ await s.call('events/subscribe',subscribe);
+ assert.ok((await trigger()).body.error);
+ assert.equal(s.deliveries.filter(e=>e.name==='probe.created').length,1);
+});
+
+test('ambiguous delivery and concurrent trigger retries never resend',async()=>{
+ let events=0,release;
+ const s=setup({postCallback:async(_url,body)=>{
+   const data=JSON.parse(body);
+   if(data.type==='verification') return {status:200,body:{challenge:data.challenge}};
+   events++; await new Promise(resolve=>{release=resolve;}); throw new Error('ambiguous');
+ }});
+ await s.call('events/subscribe',subscribe);
+ const call=()=>s.call('tools/call',{name:'trigger_synthetic_probe',arguments:{}});
+ const first=call();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal((await call()).body.result.structuredContent.state,'sending');
+ release();
+ assert.equal((await first).body.result.structuredContent.state,'unknown_outcome');
+ assert.equal((await call()).body.result.structuredContent.state,'unknown_outcome');
+ assert.equal(events,1);
+});
+
+test('callback transport checks expiry after DNS and before creating HTTPS request',async()=>{
+ const {postCallback}=await import('./bridge.mjs');
+ let active=true,requests=0,resolved=false;
+ await assert.rejects(postCallback('https://callback.example.com/events','{}',{}, {
+   isActive:()=>active,resolve:async()=>{resolved=true;active=false;return ['8.8.8.8'];},request:()=>{requests++;throw new Error('must not connect');}
+ }));
+ assert.equal(resolved,true);
+ assert.equal(requests,0);
 });

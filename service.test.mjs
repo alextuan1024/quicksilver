@@ -31,3 +31,16 @@ test('every MCP request requires pinned OAuth owner, with no legacy-key or proof
   assert.equal((await service.handle('POST','/mcp',{authorization:'Bearer fixture-only-fixture-only-fixture-only-'},rpc)).status,401);
   for(const method of ['GET','POST']) assert.equal((await service.handle(method,'/proof',headers,{})).status,403);
 });
+
+test('synthetic trigger remains exact-owner gated and expires with the bounded session',async()=>{
+ let time=now*1000;
+ const service=createService({...config,expiresAt:new Date(time+60_000).toISOString(),now:()=>time});
+ const trigger={jsonrpc:'2.0',id:2,method:'tools/call',params:{name:'trigger_synthetic_probe',arguments:{}}};
+ assert.equal((await service.handle('POST','/mcp',{},trigger)).status,401);
+ const wrong=await new SignJWT({iss:issuer,aud:resource,sub:'google-oauth2|other',client_id:config.clientId,scope:'quicksilver:probe',iat:now,exp:now+3600,jti:'wrong-owner'})
+  .setProtectedHeader({alg:'RS256',kid:'test',typ:'at+jwt'}).sign(keys.privateKey);
+ assert.equal((await service.handle('POST','/mcp',{authorization:`Bearer ${wrong}`},trigger)).status,403);
+ assert.equal((await service.handle('POST','/mcp',headers,trigger)).body.error.code,-32602);
+ time+=60_001;
+ assert.equal((await service.handle('POST','/mcp',headers,trigger)).status,503);
+});

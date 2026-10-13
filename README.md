@@ -1,7 +1,8 @@
 # Quicksilver
 
 Temporary synthetic MCP Events connection proof. No Photon integration, phone data,
-real messages, external LLM, or general send tool. No live integration success yet.
+real messages, external LLM, or general send tool. Authenticated discovery succeeded;
+the live synthetic event/acknowledgment round trip remains unverified.
 
 ## Current state
 
@@ -46,16 +47,22 @@ at most one hour from startup. Neither value exists in the initial deployment.
 Legacy `QUICKSILVER_API_KEY` is ignored by the server. Static fixture auth in the
 bridge module is used only by local contract tests.
 
-`/proof` is always denied in the deployable service: a separately approved operator
-trigger remains to be selected. The MCP scope authorizes subscription and
-acknowledgement only. Do not copy an access token or add a backdoor to trigger it.
+`/proof` is always denied in the deployable service. The explicitly approved
+`trigger_synthetic_probe` MCP tool uses the same verified owner/client/scope and
+deadline. Do not copy an access token or add a backdoor to trigger it.
 
 ## Bounded synthetic protocol
 
 `server/discover` advertises MCP `2026-07-28`, events and tools. Event `probe.created`
 has the exact filter `{"session":"quicksilver"}` and a synthetic proof ID/nonce.
-The only tool, `acknowledge_probe`, accepts that active proof ID/nonce, idempotently.
-The owner must instruct the existing Athena to acknowledge this test.
+`acknowledge_probe` accepts that active proof ID/nonce, idempotently. The owner must
+instruct the existing Athena to acknowledge this test. `trigger_synthetic_probe`
+accepts only `{}` and requires a verified subscription. It reserves one emission
+before awaiting delivery; concurrent/repeated calls return its existing proof ID
+and state, never the nonce, and never resend even after an uncertain outcome.
+Unsubscribe/resubscribe cannot rearm that process. Only the signed event carries
+the nonce. Authorization and subscription expiry are rechecked after DNS and
+before opening the HTTPS connection.
 
 One callback is verified using a signed challenge. Standard Webhooks signatures
 bind ID, timestamp and exact body. HTTPS callbacks must resolve exclusively to
@@ -70,7 +77,9 @@ The live OAuth flow must verify PKCE S256, exact redirect/resource, issued claim
 and owner binding before the synthetic round trip. A successful callback alone
 is insufficient: require Athena's tool trace and matching acknowledged proof.
 
-State is intentionally in memory; restart loses subscriptions/proofs, and an
+State is intentionally in memory; restart loses subscriptions/proofs and the
+one-shot marker. Never automatically retry or resubscribe after restart: stop the
+test and seek a new explicit bounded approval. An
 absolute deadline prevents indefinite access. Free Render may sleep or restart.
 This test does not prove durable production event delivery. After testing, remove
 owner/deadline configuration and revoke the test grant/client access as appropriate.
