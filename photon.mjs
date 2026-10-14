@@ -12,12 +12,12 @@ export const photonEvent={name:'photon.test.received',description:'The single ap
  payloadSchema:schema({request_id:{type:'string'},text:{type:'string',enum:[INCOMING_TEXT]}})};
 export const photonTools=[
  {name:'photon_test_status',description:'Inspect the disabled or bounded Photon test state and current boot ID. No messages or credentials.',inputSchema:schema({}),annotations:{...annotations,readOnlyHint:true,openWorldHint:false}},
- {name:'arm_photon_test',description:'Only after fresh explicit user approval: activate one fixed-text DM test for this exact boot and configured deadline. Never automatically rearm after restart or ambiguity. Currently transport-locked pending SDK review.',inputSchema:schema({boot_id:{type:'string'}}),annotations},
+ {name:'arm_photon_test',description:'Only after fresh explicit user approval: activate one fixed-text DM test for this exact boot and configured deadline. Never automatically rearm after restart or ambiguity.',inputSchema:schema({boot_id:{type:'string'}}),annotations},
  {name:'reply_photon_test',description:'Reply once to the exact approved inbound test request in its original DM. Fixed text only; no target or content inputs. Provider acceptance does not prove recipient delivery.',inputSchema:schema({request_id:{type:'string'}}),annotations},
 ];
 
-// No env credentials are read here. Production supplies no transport while the
-// reviewed direct-client adapter awaits secure setup and live authorization.
+// No env credentials are read here. Runtime configuration prepares a transport;
+// this controller starts it only after the explicit owner-authorized arm.
 export function createPhotonTest({config={},transport,ready=()=>false,publish,expiresAt,now=Date.now}={}) {
  const boot_id=randomUUID(), started=now(), deadline=Date.parse(expiresAt);
  const configured=config.projectId===PROJECT_ID && /^\+[1-9]\d{7,14}$/.test(config.ownerAddress??'') &&

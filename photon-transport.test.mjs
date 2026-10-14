@@ -17,9 +17,12 @@ function setup({events=[incoming()],send,issue,create}={}) {
    sendText:async(...args)=>{sends++;records.push(args);return send?send():{guid:'outbound'};}}};}})});
  return {transport,records,get:()=>({options,filter,issues,sends,closed,reads})};
 }
-test('live lock precedes token exchange and client creation',async()=>{
- assert.equal(PHOTON_LIVE_TRANSPORT_ALLOWED,false);
- await assert.rejects(createPhotonTransport({config,projectSecret:'public-fixture',expiresAt:new Date(time+60_000).toISOString(),now:()=>time}).start(()=>{}),/live_transport_locked/);
+test('reviewed source unlock still rejects inactive start before token exchange',async()=>{
+ assert.equal(PHOTON_LIVE_TRANSPORT_ALLOWED,true);
+ let loads=0;
+ await assert.rejects(createPhotonTransport({config,projectSecret:'public-fixture',expiresAt:new Date(time+60_000).toISOString(),now:()=>time,
+  sdkLoader:async()=>{loads++;throw Error('fixture loader must not run');}}).start(()=>{},()=>false),/transport_unavailable/);
+ assert.equal(loads,0);
 });
 test('supported direct client is TLS, no retries, no account/profile APIs; exact chat subscription',async()=>{
  const f=setup();let reply;

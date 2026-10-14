@@ -89,15 +89,19 @@ The Spectrum provider's contact-share callback runs on non-self
 The direct SDK replacement does not create that provider and therefore never
 installs that callback. No Photon profile/account-setting change is required.
 
-`PHOTON_LIVE_TRANSPORT_ALLOWED=false` remains a source-level lock with no env/MCP
-override. `server.mjs` now uses `runtime.mjs` to read approved configuration. While
-locked it constructs no Photon transport. After a separately reviewed source
-unlock, construction still does not connect: the existing owner OAuth gate,
+The prepared source unlock sets `PHOTON_LIVE_TRANSPORT_ALLOWED=true`; it has no
+env/MCP override. `server.mjs` uses `runtime.mjs` to read approved configuration.
+Construction still does not connect: the existing owner OAuth gate,
 verified subscription, fresh deadline and explicit current-boot activation apply.
-Credentials alone cannot enable it. Local dependency injection is used only by
+Credentials alone cannot activate it. Local dependency injection is used only by
 tests; the server never selects dependencies from environment or HTTP/MCP input.
 This code has only fixture and loopback RPC evidence, not Photon server acceptance
 or iMessage proof.
+
+All SDK-start tests inject local loaders; the reviewed source-flag test also
+injects a loader and proves it is never reached when activation is inactive.
+Runtime source-default tests inject a transport factory. No CI test exchanges
+a fixture secret with Photon, regardless of the source flag.
 
 ## Verified mapping and runtime configuration (2026-10-14)
 
@@ -145,6 +149,16 @@ do not broaden subscriptions or discover unrelated chats if it differs.
    evidence that the fixed reply reached the same DM. Neither a callback 2xx nor
    provider acceptance alone proves the two-way connection. On ambiguous send,
    sleep/restart or expiry: stop, inspect and do not retry automatically.
+
+The deadline is an absolute ISO UTC value read once at process startup, not a
+15-minute timer that starts when armed. Changing the Render variable requires a
+new process; Save only does not change a running process. A restart also clears
+subscriptions and changes the boot ID. Therefore first finish deployment and
+connector preparation, then set the agreed deadline to 15 minutes ahead, restart,
+establish the authenticated subscription on that boot, inspect status and arm.
+Subscription setup consumes part of that window. It cannot be finalized with the
+expired deadline and then retained through a deadline-changing restart. Do not
+extend or renew the deadline automatically if setup takes too long.
 
 No plugin install, security changes, credential generation, paid service/storage,
 or actual iMessage is authorized or performed by this implementation deployment.

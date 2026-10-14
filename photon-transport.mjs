@@ -1,8 +1,9 @@
 import {randomUUID} from 'node:crypto';
 import {PROJECT_ID,INCOMING_TEXT,REPLY_TEXT} from './photon.mjs';
 
-// Remains a code-review/activation gate, never an env or MCP switch.
-export const PHOTON_LIVE_TRANSPORT_ALLOWED=false;
+// Reviewed source gate, never an env or MCP switch. Startup remains disarmed;
+// only the owner-authorized, boot-bound arm can call start within its deadline.
+export const PHOTON_LIVE_TRANSPORT_ALLOWED=true;
 const loadSdk=async()=>{
  // The supported cloud helper has an environment URL override. Do not allow
  // a project credential to be directed anywhere except the official origin.

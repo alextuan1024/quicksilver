@@ -21,16 +21,30 @@ const headers=await authorization();
 const rpc=(service,method,params,h=headers)=>service.handle('POST','/mcp',h,{jsonrpc:'2.0',id:1,method,params});
 const call=async(service,name,args,h=headers)=>(await rpc(service,'tools/call',{name,arguments:args},h)).body.result?.structuredContent;
 
-test('runtime keeps real transport source-locked even with complete credentials and env enable attempts',async()=>{
+test('runtime retains explicit source-lock behavior despite credentials and env enable attempts',async()=>{
  let factories=0;
  const service=createRuntimeService({...env,PHOTON_LIVE_TRANSPORT_ALLOWED:'true',PHOTON_ENABLED:'true'},
-  {now:()=>started,jwks,transportFactory:()=>{factories++;throw Error('must not construct');}});
+  {now:()=>started,jwks,transportAllowed:false,transportFactory:()=>{factories++;throw Error('must not construct');}});
  const status=await call(service,'photon_test_status',{});
  assert.equal(status.configured,true);assert.equal(status.state,'disarmed');assert.equal(status.transport,'locked');
  assert.equal((await call(service,'arm_photon_test',{boot_id:status.boot_id})).state,'unavailable');
  assert.equal(factories,0);
  assert.equal((await service.handle('GET','/healthz',{},{})).body.photon,'disabled');
  assert.equal(JSON.stringify(status).includes(env.SPECTRUM_PROJECT_SECRET),false);
+ await service.stop();
+});
+
+test('default reviewed runtime prepares transport but stays disarmed without a subscription',async()=>{
+ // Exercise the default source flag with an injected fixture, never a live SDK.
+ let factories=0,starts=0;
+ const service=createRuntimeService(env,{now:()=>started,jwks,transportFactory:()=>{
+  factories++;return {start:async()=>{starts++;},stop:async()=>{}};
+ }});
+ const status=await call(service,'photon_test_status',{});
+ assert.equal(status.configured,true);assert.equal(status.state,'disarmed');
+ assert.equal(status.transport,'fixture_or_reviewed_transport');
+ assert.equal((await call(service,'arm_photon_test',{boot_id:status.boot_id})).state,'unavailable');
+ assert.equal(factories,1);assert.equal(starts,0);
  await service.stop();
 });
 
