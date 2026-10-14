@@ -90,24 +90,52 @@ The direct SDK replacement does not create that provider and therefore never
 installs that callback. No Photon profile/account-setting change is required.
 
 `PHOTON_LIVE_TRANSPORT_ALLOWED=false` remains a source-level lock with no env/MCP
-override. `server.mjs` still neither reads Photon credentials nor attaches any
-Photon transport. Credentials alone cannot enable it. Independent review, future
-wiring and explicit live authorization remain necessary. This code has only
-fixture and loopback RPC evidence, not Photon server acceptance or iMessage proof.
+override. `server.mjs` now uses `runtime.mjs` to read approved configuration. While
+locked it constructs no Photon transport. After a separately reviewed source
+unlock, construction still does not connect: the existing owner OAuth gate,
+verified subscription, fresh deadline and explicit current-boot activation apply.
+Credentials alone cannot enable it. Local dependency injection is used only by
+tests; the server never selects dependencies from environment or HTTP/MCP input.
+This code has only fixture and loopback RPC evidence, not Photon server acceptance
+or iMessage proof.
+
+## Verified mapping and runtime configuration (2026-10-14)
+
+The logged-in Photon Athena Users page showed one active owner, Alex Tuan,
+registered sender `+13322179242`, assigned number `+17739371532`, Shared. The
+Platforms page showed iMessage Shared Connected with the same managed number.
+These observations are dashboard evidence, not live transport evidence:
+https://app.photon.codes/dashboard/77c7d003-2bf1-4638-b866-2e2ce16ab091/users
+and https://app.photon.codes/dashboard/77c7d003-2bf1-4638-b866-2e2ce16ab091/platforms.
+
+Runtime inputs:
+- `SPECTRUM_PROJECT_SECRET`: existing Athena secret, entered directly by the user
+  in Render. Never supplied in chat, local files, tests or logs.
+- `PHOTON_OWNER_ADDRESS`: must equal the dashboard-verified `+13322179242`;
+  a missing or different value leaves Photon unconfigured.
+- `QUICKSILVER_OWNER_SUBJECT`: preserve the existing verified Auth0 owner value.
+- `QUICKSILVER_SESSION_EXPIRES_AT`: fresh absolute UTC deadline, at most one hour
+  after process startup. Do not reuse the expired October 13 window.
+
+The project is fixed to `PROJECT_ID`; shared SDK routing is fixed to `shared`.
+No project, managed-number, endpoint or DM environment override is accepted.
+Expected DM `any;-;+13322179242` is derived from the SDK's canonical form and the
+verified sender. An actual live provider GUID has not been observed. Incoming
+events must match this exact GUID at both adapter and controller or fail closed;
+do not broaden subscriptions or discover unrelated chats if it differs.
 
 ## Next secure handoff and live go/no-go gates
 
-1. Independently review the supported direct-client fix and its local tests; wire
-   the reviewed transport into the server in a new tested deployment. Reassess
+1. Review the local runtime wiring and tests, then separately authorize the source
+   unlock and deployment for the bounded test. Reassess
    any provider account/plan/cost requirement with the owner before proceeding.
-2. Parent/user verify the exact registered owner E.164 address, managed line's
-   SDK routing value and existing DM ID through Photon. Do not infer them from
-   Google identity or create another conversation. Shared mode may use a routing
-   sentinel instead of the displayed phone; verify the actual provider value.
-3. Only then ask the user to enter the existing project secret directly in the
-   approved Render secret UI. Do not put secrets in chat, tool arguments, repo,
-   logs, screenshots or local files. No secret has been read or transmitted by
-   this task. No new credential or grant is requested now.
+2. Use the verified owner/shared-line mapping above. Confirm the actual incoming
+   DM GUID through the exact filtered test; never infer identity from Google or
+   create another conversation. A mismatch stops the experiment.
+3. User approved and completed direct secret storage in the existing Render
+   service on October 14. The saved key was verified without reading its value.
+   Configure only the verified non-secret owner field and a freshly approved
+   deadline. No new credential or broader grant is needed for this revision.
 4. Obtain a fresh explicit bounded live-test deadline and user authorization for
    the exact text/one-reply test. Update only approved routing/deadline fields,
    refresh tools in the existing Athena connection, verify subscription, inspect

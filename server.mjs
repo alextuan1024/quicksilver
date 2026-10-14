@@ -1,16 +1,10 @@
 import { createServer } from 'node:http';
-import { createService } from './service.mjs';
+import { createRuntimeService } from './runtime.mjs';
 import { requestSummary } from './diagnostics.mjs';
 
-// Public OAuth coordinates only. Secrets stay with Auth0/ChatGPT. Owner and absolute
-// deadline must be explicitly configured after the owner's application login.
-const service = createService({
-  issuer: 'https://dev-ar7fhtveuwv8gobu.us.auth0.com/',
-  resource: 'https://quicksilver-kvt8.onrender.com/mcp',
-  clientId: 'tpc_caXSmFzUtRmg6MaouZ9Dij',
-  ownerSubject: process.env.QUICKSILVER_OWNER_SUBJECT,
-  expiresAt: process.env.QUICKSILVER_SESSION_EXPIRES_AT,
-});
+// Read approved runtime configuration without connecting or activating Photon.
+// The transport source lock and explicit boot-bound arm remain separate gates.
+const service = createRuntimeService(process.env);
 const server = createServer(async (request, response) => {
   response.setHeader('Content-Type', 'application/json');
   response.setHeader('Cache-Control', 'no-store');
