@@ -1,14 +1,14 @@
 import { createOAuthGate } from './oauth.mjs';
-import { createBridge } from './bridge.mjs';
+import { createBridge, isDiscoveryRequest } from './bridge.mjs';
 import {createPhotonTest,photonEvent,photonTools} from './photon.mjs';
 
 export function createService(config) {
   const gate = createOAuthGate(config);
   const bridge = createBridge({expiresAt:config.expiresAt,now:config.now,
-    authorize:headers=>gate.authenticate(headers)});
+    authorize:(headers,options)=>gate.authenticate(headers,options)});
   let photon;
   const photonBridge=createBridge({expiresAt:config.expiresAt,now:config.now,
-    authorize:headers=>gate.authenticate(headers),event:photonEvent,tools:photonTools,
+    authorize:(headers,options)=>gate.authenticate(headers,options),event:photonEvent,tools:photonTools,
     postCallback:config.postCallback,onTool:(name,args)=>photon.call(name,args)});
   photon=createPhotonTest({config:config.photon,transport:config.photonTransport,
     expiresAt:config.expiresAt,now:config.now,ready:()=>gate.enabled && photonBridge.hasSubscription(),
@@ -22,7 +22,7 @@ export function createService(config) {
     // Keep this direct HTTP route inaccessible, including to valid OAuth tokens.
     if (path === '/proof') return {status:403,body:{error:'operator_trigger_not_configured'}};
     if (path !== '/mcp') return {status:404,body:{error:'not_found'}};
-    const auth = await gate.authenticate(headers);
+    const auth = await gate.authenticate(headers,{requireSession:!isDiscoveryRequest(method,path,body)});
     if (!auth.principal) return auth;
     if (method==='POST' && ['tools/list','events/list'].includes(body?.method)) {
       const result=await bridge.handle(method,path,headers,body);

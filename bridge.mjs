@@ -4,6 +4,16 @@ import https from 'node:https';
 import { isIP } from 'node:net';
 
 const MAX_SESSION_MS = 60 * 60_000;
+const discoveryMethods = new Set(['server/discover','initialize','notifications/initialized','ping','tools/list','events/list']);
+// Shared by both authorization layers. No caller-supplied flag selects this path.
+export function isDiscoveryRequest(method, path, body) {
+  if (method !== 'POST' || path !== '/mcp' || !body || typeof body !== 'object' || Array.isArray(body) ||
+      body.jsonrpc !== '2.0' || !discoveryMethods.has(body.method)) return false;
+  if (body.params !== undefined && (!body.params || typeof body.params !== 'object' || Array.isArray(body.params))) return false;
+  if (body.method === 'notifications/initialized') return !Object.hasOwn(body,'id');
+  return Object.hasOwn(body,'id') && (body.id === null || typeof body.id === 'string' ||
+    (typeof body.id === 'number' && Number.isFinite(body.id)));
+}
 const EVENT = 'probe.created';
 const objectSchema = properties => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
 const proofSchema = objectSchema({ proof_id: { type: 'string' }, nonce: { type: 'string' } });
@@ -104,12 +114,14 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
     async handle(method, path, headers, body) {
     const available = active();
     if (method === 'GET' && path === '/healthz') return reply(200, { service: 'quicksilver', mode: available ? 'synthetic-session' : 'disabled', syntheticOnly: true });
-    if (!available) return reply(503, { error: 'disabled_or_expired' });
-    if (authorize) { const auth = await authorize(headers); if (!auth.principal) return auth; }
+    // Legacy fixture-key mode keeps its existing session requirement.
+    const discovery = typeof authorize === 'function' && isDiscoveryRequest(method,path,body);
+    if (!available && !discovery) return reply(503, { error: 'disabled_or_expired' });
+    if (authorize) { const auth = await authorize(headers,{requireSession:!discovery}); if (!auth.principal) return auth; }
     else if (!equal(headers.authorization, `Bearer ${key}`)) return reply(401, { error: 'unauthorized' });
     // Authentication can await JWKS/network work. Recheck session and subscription
     // lifetime at the mutation boundary so expired proofs cannot be acknowledged.
-    if (!active()) return reply(503, { error: 'disabled_or_expired' });
+    if (!active() && !discovery) return reply(503, { error: 'disabled_or_expired' });
     if (path === '/proof') {
       if (tools) return reply(403, {error:'operator_trigger_not_configured'});
       if (method === 'GET') return reply(200, { subscription: Boolean(subscription), state: proof?.state ?? 'not_started', proof_id: proof?.id ?? null });

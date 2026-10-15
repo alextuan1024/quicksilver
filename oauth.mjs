@@ -24,9 +24,10 @@ export function createOAuthGate({ issuer, resource, clientId, ownerSubject, expi
       !issuer.endsWith('/')) throw new Error('Invalid OAuth configuration');
   const startedAt = now();
   const deadline = Date.parse(expiresAt);
-  const configured = typeof clientId === 'string' && clientId.length > 0 &&
-    typeof ownerSubject === 'string' && /^google-oauth2\|.+$/.test(ownerSubject) &&
-    Number.isFinite(deadline) && deadline > startedAt && deadline <= startedAt + MAX_SESSION_MS;
+  const ownerConfigured = typeof clientId === 'string' && clientId.length > 0 &&
+    typeof ownerSubject === 'string' && /^google-oauth2\|.+$/.test(ownerSubject);
+  const configured = ownerConfigured && Number.isFinite(deadline) &&
+    deadline > startedAt && deadline <= startedAt + MAX_SESSION_MS;
   const keys = jwks ?? createRemoteJWKSet(new URL('.well-known/jwks.json', issuerUrl), {timeoutDuration:5000});
   const metadataUrl = new URL('/.well-known/oauth-protected-resource' + resourceUrl.pathname, resourceUrl).href;
   const challenge = `Bearer resource_metadata="${metadataUrl}", scope="${SCOPE}"`;
@@ -34,7 +35,8 @@ export function createOAuthGate({ issuer, resource, clientId, ownerSubject, expi
   return {
     get enabled() { return configured && now() < deadline; },
     metadata: { resource, authorization_servers:[issuer], scopes_supported:[SCOPE], bearer_methods_supported:['header'] },
-    async authenticate(headers) {
+    // Only trusted request routing may waive the session check for discovery.
+    async authenticate(headers, {requireSession = true} = {}) {
       const match = /^Bearer ([A-Za-z0-9._~-]+)$/.exec(headers.authorization ?? '');
       // This field is internal: server.mjs serializes only body/headers to HTTP.
       const invalid = authFailure => ({...failure(401,'invalid_token'),authFailure});
@@ -53,9 +55,10 @@ export function createOAuthGate({ issuer, resource, clientId, ownerSubject, expi
           requiredClaims:['sub','exp','iat','client_id','scope','jti'],currentDate:new Date(now()),clockTolerance:0});
         if (!Number.isSafeInteger(payload.iat) || !Number.isSafeInteger(payload.exp) || payload.iat > Math.floor(now()/1000) ||
             payload.exp <= payload.iat || payload.exp-payload.iat > 3600 || typeof payload.jti !== 'string' || !payload.jti.length) return invalid('jwt_policy_invalid');
-        if (!configured || now() >= deadline) return failure(503,'owner_or_session_not_configured');
+        if (!ownerConfigured) return failure(503,'owner_or_session_not_configured');
         if (payload.sub !== ownerSubject || payload.client_id !== clientId ||
             typeof payload.scope !== 'string' || !payload.scope.split(' ').includes(SCOPE)) return failure(403,'insufficient_access');
+        if (requireSession && (!configured || now() >= deadline)) return failure(503,'owner_or_session_not_configured');
         return {principal:{issuer,subject:payload.sub,clientId,scope:SCOPE}};
       } catch (error) { return invalid(keyFailure ?? verificationFailure(error)); }
     },
