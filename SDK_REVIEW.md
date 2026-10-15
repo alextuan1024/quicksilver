@@ -1,9 +1,10 @@
-# Photon direct-client review — 2026-10-13
+# Photon direct-client review — updated 2026-10-15
 
-Recommendation: use the official lower-level gRPC SDK for both the single
-subscription and the single fixed reply. Keep the test disabled until independent
-review, future secure setup, and a fresh authorized window. No account-setting
-change or SDK patch is required for this code path.
+The independently reviewed official lower-level gRPC adapter completed one live
+fixed-text round trip on October 15, including owner-confirmed receipt. See
+[PHOTON_TEST.md](PHOTON_TEST.md) for the evidence and limits. Any further test
+requires fresh authorization and a bounded window. No vendor patch or account
+setting change was needed for this path.
 
 ## Exact retry evidence
 
@@ -76,7 +77,8 @@ Use exported `cloud.issueImessageTokens(PROJECT_ID, projectSecret)` from
 `@spectrum-ts/core`; its shipped source authenticates POST
 `https://spectrum.photon.codes/projects/{id}/imessage/tokens` with the project
 credentials. No invented account endpoint. Reject noncanonical cloud-origin
-environment overrides before importing that helper. No real call has been made.
+environment overrides before importing that helper. The successful bounded live
+run exercised this token path; local/CI tests continue to use fixtures only.
 
 Source `createCloudClients` in the original Spectrum provider maps shared tokens
 to `imessage.spectrum.photon.codes:443` and route sentinel `shared`; dedicated
@@ -84,10 +86,29 @@ responses provide `auth` and `numbers` keyed by instance, using
 `{instance}.imsg.photon.codes:443`. Our `selectLine` preserves those mappings but
 chooses only one explicitly configured route and rejects ambiguity. It neither
 provisions nor purchases a line. It never auto-refreshes a token or changes
-permissions; it stops before expiry. Whether the existing project's token permits
-the v1 filtered subscription and send RPCs still requires the bounded live test.
-The shared displayed-number/project/owner binding must be confirmed by the parent
-in Photon; `shared` is a routing sentinel, not independent phone verification.
+permissions; it stops before expiry. The successful live run exercised the exact
+filtered subscription and single fixed send for the existing project. That does
+not establish broader token permissions or other routes. The dashboard mapping
+was checked separately; `shared` is a routing sentinel, not independent phone
+verification.
+
+## Stream readiness and first-failure investigation
+
+The pinned SDK loads its gRPC implementation lazily. Returning an async stream
+is not confirmation that a server accepted the subscription. Loopback tests
+reproduced the former optimistic listening status before the server received any
+request. UNAUTHENTICATED, NOT_FOUND, INVALID_ARGUMENT, UNAVAILABLE and malformed
+frames could all lead to the same transport_error. The first live failure cannot
+be assigned one of those causes from the retained evidence.
+
+The adapter now starts at connecting and reports listening only after observed
+heartbeat/event activity. The public onHeartbeat callback was verified with the
+real SDK on loopback. Numeric gRPC status is mapped to a fixed diagnostic category;
+raw SDK errors and metadata are discarded. No automatic retry/recovery was added.
+
+The SDK timeout middleware skips streaming RPCs. A loopback subscription remained
+open past 5,300 ms with timeout:5000, an infinite server-side RPC deadline, and a
+received heartbeat. Increasing the unary timeout was not a justified fix.
 
 ## Maintenance and license
 
@@ -96,8 +117,8 @@ public APIs and redistributes no modified vendor code. Existing package licenses
 remain in the dependency distributions; no source patch/rebase burden is added.
 Exact package versions/lockfile are retained. Re-audit token response shape,
 endpoint mapping, message normalization, retry flags and stream semantics before
-upgrading. Keep the source-level live lock and all owner/DM/request guards through
-review. No new durable store, security permission or paid feature is needed for
+upgrading. The source-level enablement was independently reviewed; preserve all
+owner/DM/request, deadline and explicit-activation guards through future changes. No new durable store, security permission or paid feature is needed for
 this stop-on-failure test; production durability remains out of scope.
 
 Official sources:

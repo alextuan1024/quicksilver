@@ -1,96 +1,98 @@
 # Quicksilver
 
-Temporary MCP Events connection proof and disabled one-owner Photon test adapter.
-No external LLM or general send tool. The deployed entry point has no Photon
-credentials or transport configuration and cannot connect to Photon.
+A bounded Photon iMessage ↔ existing Athena connection proof, hosted on Render
+Free independently of the owner's Mac. No separate LLM bot or general send tool.
 
-## Current state
+## Verified result — October 15, 2026
 
-The parent reported the synthetic event reaching existing Athena and its matching
-acknowledgment on 2026-10-13. This repository did not independently verify that
-live round trip. The previous owner/session deadline has expired.
-The disabled Photon controller, MCP event, request-bound fixed reply tool and
-direct Photon SDK adapter are implemented. **No live Photon integration has
-been run; the production SDK transport is compile-time locked pending review.**
-See [PHOTON_TEST.md](PHOTON_TEST.md) for exact gates and credential handoff.
+One complete fixed-text round trip succeeded: the owner's iMessage reached the
+existing Athena through an authenticated MCP Events subscription; Athena invoked
+one request-bound reply; the owner confirmed receiving that reply in the same DM.
+The successful deployed implementation is commit
+[`5e1c511`](https://github.com/alextuan1024/quicksilver/commit/5e1c51173a31d1c7740a21e2e2f22beb39e1da52).
+The evidence is the parent conversation's event/tool trace and direct owner
+confirmation, distinct from the local fixture tests. See [PHOTON_TEST.md](PHOTON_TEST.md)
+for the UTC timeline, boundaries, and operating notes.
 
-- Resource: `https://quicksilver-kvt8.onrender.com/mcp`
-- Issuer: `https://dev-ar7fhtveuwv8gobu.us.auth0.com/`
-- Third-party client: `tpc_caXSmFzUtRmg6MaouZ9Dij` (`quicksilver-chatgpt`)
-- Scope: `quicksilver:probe`; Authorization Code with PKCE; `client_secret_post`.
-- Auth0 API: RFC 9068 / RS256, one-hour tokens, consent required, offline access off.
-  Only the named client's user-delegated scope is granted. M2M and anonymous denied.
-- Strict Auth0 third-party clients do not support OIDC scopes/ID tokens: request
-  only `quicksilver:probe`, not `openid`, `profile`, `email`, or `offline_access`.
-- Google login uses Auth0 development keys and basic/extended profile only; its
-  domain-level promotion was explicitly approved. No Google data API permissions.
-- Auth0 automatically created an unused `quicksilver (Test Application)` M2M client
-  with API creation; API policy denies its client access. Do not use its credentials.
+This proves the single approved text/reply route and existing-Athena continuity.
+It does **not** prove arbitrary conversation, unattended operation, durable
+recovery, general media support, or production reliability. The first live attempt
+failed with `transport_error`; its precise cause remains unknown. Later diagnostics
+and truthful status improved observability but do not establish what caused it.
 
-The user must enter the client secret directly into ChatGPT and complete Google
-login/consent. The server requires no client secret. Register the exact fresh
-callback shown by ChatGPT after metadata discovery, without a wildcard.
+The completed attempt consumed its single reply and closed its transport. During
+cleanup, the parent disabled the temporary automation and restored the expired
+**2026-10-15 17:10 UTC** cutoff. The same runtime commit was redeployed at
+17:29:20 UTC; the parent verified health reported `mode: disabled`,
+`photon: disabled`, and `syntheticOnly: true`. The connector and credentials were
+preserved on Render Free. No activation follows a restart automatically, and a
+future live test requires fresh explicit approval. This docs-only update does not
+deploy or change configuration.
 
-## Validation and running
+## Connection and controls
 
-Node 22. `npm ci --ignore-scripts --no-audit --no-fund`, `node --test`,
-`node scan.mjs`, then `node server.mjs`. Render Free build uses the install,
-tests and scan commands; start `node server.mjs`; health `/healthz`. No database
-or disk, auto-deploy off. Source and lockfile pin `jose` 6.2.12 and both Spectrum packages at 12.10.1 and the direct Photon SDK at 2.2.0.
+The path is Photon managed iMessage → strict one-owner transport → authenticated
+relay → signed MCP event → existing Athena → request-bound reply → original DM.
+State is deliberately in memory; this prototype does not implement a durable relay.
 
-`jose.jwtVerify` validates RS256 signature against issuer-pinned JWKS, issuer,
-audience, RFC 9068 token type, required claims, expiry, and bounded token lifetime.
-Every MCP operation additionally requires exact client/owner and scope. ID tokens,
-wrong signatures/claims, legacy keys, missing owner, missing/expired/oversized
-session windows are rejected. Tokens and callback secrets are not logged.
+- Auth0 RS256/RFC 9068 tokens must match the pinned issuer, audience, client,
+  verified owner, scope, and bounded token-lifetime policy.
+- Only valid authenticated discovery/handshake requests work outside a test
+  window. Every tool call and subscription operation still requires the window.
+- The transport requires a verified subscription, current boot ID, configured
+  owner route, and explicit one-time activation. Startup alone never connects.
+- Both adapter and controller enforce the exact owner/chat/text and reject
+  groups, echoes, attachments and unsupported message types.
+- Only one fixed reply to the captured request is permitted. Ambiguous results
+  consume the attempt; no automatic retries, reconnects, catch-up, or rearming.
+- `connecting` means pending. `listening` requires observed heartbeat/event
+  activity; it does not prove recipient delivery. Only the received owner event
+  permits a reply. `provider_accepted` also needs recipient confirmation.
+- Transport logs contain only fixed phase/category, allowlisted numeric gRPC
+  status, elapsed time, and activity booleans. No raw provider errors, message
+  content, credentials, metadata, or phone/chat/message identifiers are logged.
 
-Set `QUICKSILVER_OWNER_SUBJECT` only after verifying the user's exact Auth0 app
-identity. Set `QUICKSILVER_SESSION_EXPIRES_AT` to an approved absolute UTC deadline
-at most one hour from startup. The existing owner value is retained; its previous deadline is expired.
-Legacy `QUICKSILVER_API_KEY` is ignored by the server. Static fixture auth in the
-bridge module is used only by local contract tests.
+The public SDK adapter uses the managed cloud path, exact chat subscription,
+TLS, disabled retry layers, and a bounded unary timeout. It avoids Spectrum's
+provider-level contact-sharing callback. [SDK_REVIEW.md](SDK_REVIEW.md) records
+version-specific findings; do not assume them for other SDK versions.
 
-`/proof` is always denied in the deployable service. The explicitly approved
-`trigger_synthetic_probe` MCP tool uses the same verified owner/client/scope and
-deadline. Do not copy an access token or add a backdoor to trigger it.
+## Validation and local operation
 
-## Bounded synthetic protocol
+Target runtime: Node 22. The successful deployment passed **82 tests and the
+secret-pattern scan**. Tests cover OAuth/discovery, signed callbacks, owner and
+message filtering, lifecycle/expiry, single-attempt behavior, diagnostics, and
+real SDK calls to loopback gRPC fixtures. CI uses fixture keys and injected
+transports; it does not contact Photon with real credentials or send iMessages.
 
-`server/discover` advertises MCP `2026-07-28`, events and tools. Event `probe.created`
-has the exact filter `{"session":"quicksilver"}` and a synthetic proof ID/nonce.
-`acknowledge_probe` accepts that active proof ID/nonce, idempotently. The owner must
-instruct the existing Athena to acknowledge this test. `trigger_synthetic_probe`
-accepts only `{}` and requires a verified subscription. It reserves one emission
-before awaiting delivery; concurrent/repeated calls return its existing proof ID
-and state, never the nonce, and never resend even after an uncertain outcome.
-Unsubscribe/resubscribe cannot rearm that process. Only the signed event carries
-the nonce. Authorization and subscription expiry are rechecked after DNS and
-before opening the HTTPS connection.
+```sh
+npm ci --ignore-scripts --no-audit --no-fund
+node --test
+node scan.mjs
+node server.mjs
+```
 
-One callback is verified using a signed challenge. Standard Webhooks signatures
-bind ID, timestamp and exact body. HTTPS callbacks must resolve exclusively to
-public IPv4; sockets pin the checked address with hostname TLS verification.
-No redirects, IPv6, credentials, custom ports, arbitrary payloads or destinations.
-Wrong nonce, competing callbacks, expired state and stale acknowledgements after
-unsubscribe/restart fail. Delivery is never retried automatically.
+The existing Render Free service uses those install/test/scan commands, starts
+`node server.mjs`, and exposes `/healthz`. Auto-deploy is off; no persistent disk
+or database is configured. A docs-only push is not a deployment. No secrets
+belong in this repository. Local evidence and dependencies remain ignored.
 
-Local tests use generated test keys and simulated callbacks; they prove contracts,
-not Auth0 issuance, ChatGPT callback delivery, Athena continuity, or iMessage.
-The live OAuth flow must verify PKCE S256, exact redirect/resource, issued claims,
-and owner binding before the synthetic round trip. A successful callback alone
-is insufficient: require Athena's tool trace and matching acknowledged proof.
+`/proof` is denied. The optional synthetic proof uses its owner-gated MCP tool,
+a verified callback, and its own one-shot nonce acknowledgment. It is separate
+from the now-proven live iMessage round trip.
 
-State is intentionally in memory; restart loses subscriptions/proofs and the
-one-shot marker. Never automatically retry or resubscribe after restart: stop the
-test and seek a new explicit bounded approval. An
-absolute deadline prevents indefinite access. Free Render may sleep or restart.
-This test does not prove durable production event delivery. After testing, remove
-owner/deadline configuration and revoke the test grant/client access as appropriate.
+## Remaining work
+
+Before considering ongoing conversation: design durable event/request state,
+idempotent recovery and subscription reconciliation, replay handling, explicit
+message/content scope, and operational monitoring. Reassess hosting availability
+and costs with the owner. Free service sleep/restarts can interrupt an in-memory
+connection; this prototype deliberately stops instead of recovering unattended.
+Any expansion needs separate review and authorization.
 
 ## References
 
-- https://developers.openai.com/plugins/build/mcp-events
-- https://developers.openai.com/plugins/build/auth
-- https://developers.openai.com/api/docs/guides/custom-mcp-server
-- https://auth0.com/docs/get-started/applications/third-party-applications/security-controls
-- https://render.com/docs/free
+- [MCP Events](https://developers.openai.com/plugins/build/mcp-events)
+- [Photon cloud iMessage](https://photon.codes/docs/spectrum-ts/providers/imessage)
+- [Render Free services](https://render.com/docs/free)
+- [Render environment changes](https://render.com/docs/configure-environment-variables)

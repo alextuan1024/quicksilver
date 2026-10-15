@@ -1,184 +1,149 @@
-# Disabled Photon one-message connection proof
+# Photon one-message connection proof
 
-Approved scope: existing cloud project `77c7d003-2bf1-4638-b866-2e2ce16ab091`,
-one verified owner, one predetermined incoming text and one fixed reply in that
-same DM. Use the managed cloud line, not the user's Mac Messages account.
+Scope: one verified owner, one predetermined incoming text and one fixed reply in
+that same DM, through the existing Athena dot. The runtime uses a managed Photon
+cloud line and does not depend on the owner's Mac Messages account.
 
-Incoming text: `Athena connection test.`
-Reply text: `Athena received your connection test.`
+Incoming: `Athena connection test.`
+Reply: `Athena received your connection test.`
 
-## What is implemented and tested
+## Verified result — October 15, 2026
 
-`photon.mjs` validates exact configured project/owner address/line/DM, inbound
-imessage platform and service, plain text, timestamp since activation, and excludes
-groups, echoes, automatic/system/spam/corrupt messages and multipart parents.
-It reserves the receive slot before async delivery, emits `photon.test.received`
-with only a random request ID and the fixed text, and retains a reply closure bound to the captured
-inbound DM and message GUID privately. The reply tool accepts only that request ID.
-No caller-supplied text or destination is accepted. Phone/DM identifiers and raw
-provider errors are not logged or included in the event/tool result.
+The parent conversation observed the following live sequence on deployed commit
+`5e1c51173a31d1c7740a21e2e2f22beb39e1da52`:
 
-The same `/mcp` endpoint and exact-owner OAuth gate expose the new event and three
-tools: `photon_test_status`, `arm_photon_test`, `reply_photon_test`. Existing Athena
-must subscribe to the event, preserving the existing dot and conversation. No
-new LLM or bot is created. The signed webhook callback must pass verification.
-The reply slot is consumed before the async send; errors/undefined result mean
-`unknown_outcome`, never retry. `provider_accepted` is not recipient delivery.
+| UTC time | Evidence |
+| --- | --- |
+| 17:20:56 | Exact event subscription verified successfully after the new deployment. |
+| 17:21:42 | Explicit current-boot arm returned `connecting`. |
+| 17:22:10 | Status reported `listening` after observed stream activity. |
+| 17:22:46.120 | The fixed owner message arrived as an event in existing Athena. |
+| 17:23:16 | One request-bound `reply_photon_test` returned `provider_accepted`. |
+| 17:24:11 | The owner directly confirmed receiving the reply in the same DM. |
 
-Arming initially returns `connecting`. `listening` means the SDK has observed a
-heartbeat or decoded event on this stream; it does not prove owner-DM routing or
-future connectivity. A valid first owner event can proceed directly to delivery.
-Never ask the owner to resend or rearm merely because the connection is pending.
-The existing deadline remains the upper bound on the attempt.
+Together, event receipt, the bound reply result, and owner confirmation prove the
+approved two-way fixed-text connection. A callback 2xx, `listening`, or provider
+acceptance alone would not have sufficed. Identifiers, personal phone numbers,
+credentials, and raw logs are deliberately omitted from this document.
 
-Transport diagnostics contain only a fixed event marker, allowlisted phase and
-category, numeric gRPC status (or null), elapsed milliseconds, and heartbeat/event
-seen booleans. Only the first heartbeat and first decoded event are recorded.
-Raw exceptions, metadata, credentials, phone/chat/message IDs and message content
-are excluded. An `unknown` category does not identify the underlying failure.
+The first attempt earlier that day reached apparent `listening`, then failed
+with `transport_error` before any verified inbound event/reply. Its root cause
+is still unknown. The prior status was optimistic: local real-SDK fixtures proved
+that it could return before the subscription reached a server. Distinct gRPC and
+mapping errors also collapsed into that same state. The later successful run is
+not proof that a particular upstream fault was fixed.
 
-Each process starts disarmed with a random boot ID. Activation requires the
-current boot ID, a verified subscription, private route configuration and a fresh
-absolute session deadline (maximum one hour). The boot may arm once. Deadline
-expiry or explicit stop invalidates the request and closes transport. Old boot
-activation and old request IDs fail after restart. On Free Render sleep/restart,
-stop the experiment: do not automatically resubscribe/rearm/replay. A new manual
-activation requires fresh human approval after reviewing the previous outcome.
-This fail-closed guard needs no disk; it does not provide durable exactly-once or
-automatic recovery across separately approved sessions. Production durability
-would require a separately reviewed store and design, not silently paid storage.
+The successful test window was approved through **2026-10-15 17:45 UTC**. Completion consumed
+the reply slot and closed the transport. The parent then disabled the temporary
+automation at 17:27:01 UTC and restored the earlier expired **17:10 UTC** cutoff.
+A cleanup deployment of the same runtime commit became live at 17:29:20 UTC,
+passing 82 tests and the secret scan. The parent verified `mode: disabled`,
+`photon: disabled`, and `syntheticOnly: true`. Render Free, the existing connector,
+and stored credentials were retained. These operational cleanup actions were
+performed separately; the repository wrap-up changes documentation only.
+This result record is not authorization to start another session.
 
-`createPhotonTransport` uses public `@photon-ai/advanced-imessage/grpc` APIs
-for both directions. It exchanges the exact project's secret using Spectrum's
-exported `cloud.issueImessageTokens` helper, selects only the configured line,
-and subscribes with `messages.subscribeEvents({chat: exactDM})`. No Spectrum
-instance or iMessage provider is created. No profile/contact, account-settings,
-chat-creation, typing, read-receipt, reconnect or catch-up method is called.
+## Implemented controls
 
-The direct client sets TLS, `retry:false`, `autoIdempotency:true`,
-`channelOptions:{'grpc.enable_retries':0}` and a bounded unary timeout. The
-single captured reply calls `messages.sendText` with the captured DM/message GUID,
-a stable per-request UUID, fixed reply text, and link preview/data detection off.
-Both event and message must explicitly be inbound (`isFromMe===false`). Text,
-owner/service, exact chat IDs, fresh timestamp, normal item type and no app,
-attachments, automatic/system/spam/corrupt/multipart content are checked before
-normalization into the existing controller. The controller's checks still apply.
+`photon.mjs` validates exact configured project, owner address, route and DM,
+inbound iMessage service, plain text and fresh timestamp. It excludes groups,
+echoes, automatic/system/spam/corrupt messages and unsupported multipart content.
+The adapter applies corresponding native-message checks before normalization.
 
-The October 15 live attempt reached transport startup, then `transport_error`,
-without a verified received event or reply. Two-way success remains unproven.
-Token exchange waits at most five seconds; late results are discarded.
-No auto-renewal occurs. Token expiry minus five seconds or the approved session
-expiry, whichever comes first, closes the stream and client. Stream error/end or
-earlier token expiry synchronously notifies the controller before cleanup awaits,
-invalidates its pending request, and exposes a terminal state instead of stale
-listening/awaiting status. Closure during a send preserves `unknown_outcome`,
-even if the original RPC later resolves successfully. Normal accepted replies
-retain their result through intentional cleanup. Cloud origin and
-managed gRPC endpoints are fixed/validated, not arbitrary operator URLs.
-Shared routing uses the literal `shared`, not the displayed managed number.
-Dedicated routing must uniquely match the configured number in the authenticated
-token response. Parent must verify the displayed owner/managed-line association
-in Photon; shared tokens do not independently attest to that displayed number.
+The receive slot is reserved before asynchronous callback delivery. The event
+`photon.test.received` contains only a random request ID and the fixed text. Its
+reply closure privately captures the original DM and incoming message GUID.
+`reply_photon_test` accepts only the request ID, never arbitrary text or a target.
+The send slot is consumed before the RPC. Uncertain results become
+`unknown_outcome` and cannot be retried. `provider_accepted` is not proof of delivery.
 
-## Retry/profile findings and supported resolution
+The same OAuth-protected `/mcp` exposes `photon_test_status`, `arm_photon_test`, and
+`reply_photon_test`. Every request requires the pinned token issuer/audience,
+client, owner and scope. Safe discovery/handshake methods are explicitly
+allowlisted outside a live window; tool calls and subscription operations are not.
+The event callback must pass a signed verification challenge. Public-address DNS
+validation, socket pinning, TLS and no redirects limit callback destinations.
 
-Original MIT packages: Spectrum core/provider 12.10.1; Photon SDK 2.2.0. All are
-exact lockfile dependencies. No vendor patch, internal monkey-patch or copied
-vendor source is used in the replacement. See [SDK_REVIEW.md](SDK_REVIEW.md) for
-source locations, exact retry conditions, original-SDK loopback observations,
-licensing/maintenance assessment and remaining live verification limits.
+Startup is disarmed. Activation requires the current boot ID, approved route,
+verified event subscription and a fresh absolute deadline within one hour of
+startup. A boot may arm once. Deadline expiry, termination or stop invalidates
+pending requests. A restart loses subscriptions and one-shot state; it never
+resumes a session automatically. Fresh approval is required before any new boot
+is subscribed and armed for another test.
 
-The earlier gate was conservative: `retry:true` is not proof of duplicate sends.
-The middleware intends to retry only server-marked failures, with a default
-maximum of four attempts; generic unmarked ambiguous network errors are not
-selected by that middleware. In the pinned installation's real loopback test,
-a marked trailer produced ONE request and a final `retryable:true` error; the
-trailer capture is outside retry middleware. We do not rely on that ordering or
-claim a universal SDK guarantee. The replacement explicitly disables both retry
-layers regardless. Pre-send retries should not be characterized as duplication.
+## Transport and diagnostics
 
-The Spectrum provider's contact-share callback runs on non-self
-`message.received` events before application filtering when profile sync is true.
-The direct SDK replacement does not create that provider and therefore never
-installs that callback. No Photon profile/account-setting change is required.
+The source-reviewed transport is enabled in code, but credentials alone cannot
+activate it. `runtime.mjs` prepares it only with valid configuration and a fresh
+window; explicit activation remains required. Tests inject dependencies locally;
+HTTP, MCP and environment inputs cannot select alternative implementations.
 
-The prepared source unlock sets `PHOTON_LIVE_TRANSPORT_ALLOWED=true`; it has no
-env/MCP override. `server.mjs` uses `runtime.mjs` to read approved configuration.
-Construction still does not connect: the existing owner OAuth gate,
-verified subscription, fresh deadline and explicit current-boot activation apply.
-Credentials alone cannot activate it. Local dependency injection is used only by
-tests; the server never selects dependencies from environment or HTTP/MCP input.
-This code has only fixture and loopback RPC evidence, not Photon server acceptance
-or iMessage proof.
+The adapter uses public Spectrum token issuance and the official low-level
+`@photon-ai/advanced-imessage/grpc` client. It selects the fixed shared route,
+subscribes only to the exact owner DM, and sends through the captured reply target.
+No provider-level profile/contact sharing, account changes, chat creation, typing,
+read receipts, chat enumeration, reconnect, catch-up, or token renewal is performed.
+TLS, `retry:false`, `grpc.enable_retries:0`, stable per-request identifiers, and a
+bounded unary timeout are retained. Tokens are never copied into this repository.
 
-All SDK-start tests inject local loaders; the reviewed source-flag test also
-injects a loader and proves it is never reached when activation is inactive.
-Runtime source-default tests inject a transport factory. No CI test exchanges
-a fixture secret with Photon, regardless of the source flag.
+Token issuance waits at most five seconds. Token lifetime minus five seconds or
+the session cutoff, whichever comes first, closes the stream. The pinned SDK
+excludes streaming calls from its unary timeout; local loopback evidence ruled
+out that five-second setting as a receive-stream lifetime limit.
 
-## Verified mapping and runtime configuration (2026-10-14)
+Arming returns `connecting` until the SDK observes a heartbeat or decoded event.
+Then `listening` describes stream activity, not confirmed owner routing or future
+availability. A valid first message can proceed directly to delivery. Activity
+alone never bypasses exact message checks. Late activity cannot revive a stopped
+attempt. Failure during a send preserves uncertainty even if a late RPC succeeds.
 
-The logged-in Photon Athena Users page showed one active owner, Alex Tuan,
-registered sender `+13322179242`, assigned number `+17739371532`, Shared. The
-Platforms page showed iMessage Shared Connected with the same managed number.
-These observations are dashboard evidence, not live transport evidence:
-https://app.photon.codes/dashboard/77c7d003-2bf1-4638-b866-2e2ce16ab091/users
-and https://app.photon.codes/dashboard/77c7d003-2bf1-4638-b866-2e2ce16ab091/platforms.
+Diagnostics emit only a fixed marker, allowlisted phase/category, numeric gRPC
+status or null, elapsed milliseconds, and heartbeat/event-seen booleans. Only the
+first heartbeat and first decoded event are logged. No error text, cause, context,
+metadata, token, phone/chat/message identifier, or message content is included.
+Unknown failures remain explicitly unknown.
 
-Runtime inputs:
-- `SPECTRUM_PROJECT_SECRET`: existing Athena secret, entered directly by the user
-  in Render. Never supplied in chat, local files, tests or logs.
-- `PHOTON_OWNER_ADDRESS`: must equal the dashboard-verified `+13322179242`;
-  a missing or different value leaves Photon unconfigured.
-- `QUICKSILVER_OWNER_SUBJECT`: preserve the existing verified Auth0 owner value.
-- `QUICKSILVER_SESSION_EXPIRES_AT`: fresh absolute UTC deadline, at most one hour
-  after process startup. Do not reuse the expired October 13 window.
+## Configuration and future test procedure
 
-The project is fixed to `PROJECT_ID`; shared SDK routing is fixed to `shared`.
-No project, managed-number, endpoint or DM environment override is accepted.
-Expected DM `any;-;+13322179242` is derived from the SDK's canonical form and the
-verified sender. An actual live provider GUID has not been observed. Incoming
-events must match this exact GUID at both adapter and controller or fail closed;
-do not broaden subscriptions or discover unrelated chats if it differs.
+Existing runtime keys are `SPECTRUM_PROJECT_SECRET`, `PHOTON_OWNER_ADDRESS`,
+`QUICKSILVER_OWNER_SUBJECT`, and `QUICKSILVER_SESSION_EXPIRES_AT`. Preserve verified
+bindings; the project and shared route are source-pinned. The owner entered the
+project secret directly into Render. Do not request it in chat or store it locally.
+The successful filtered event exercised the canonical pinned DM; no unrelated
+chats were queried. Never broaden the filter to work around a mismatch.
 
-## Next secure handoff and live go/no-go gates
+For any separately approved future bounded test:
 
-1. Review the local runtime wiring and tests, then separately authorize the source
-   unlock and deployment for the bounded test. Reassess
-   any provider account/plan/cost requirement with the owner before proceeding.
-2. Use the verified owner/shared-line mapping above. Confirm the actual incoming
-   DM GUID through the exact filtered test; never infer identity from Google or
-   create another conversation. A mismatch stops the experiment.
-3. User approved and completed direct secret storage in the existing Render
-   service on October 14. The saved key was verified without reading its value.
-   Configure only the verified non-secret owner field and a freshly approved
-   deadline. No new credential or broader grant is needed for this revision.
-4. Obtain a fresh explicit bounded live-test deadline and user authorization for
-   the exact text/one-reply test. Update only approved routing/deadline fields,
-   refresh tools in the existing Athena connection, verify subscription, inspect
-   the current boot ID, and explicitly arm once. Never reuse the expired window.
-5. User sends the fixed text once from the registered number. Require the event
-   in existing Athena, its exact request-bound reply tool result, and user/Photon
-   evidence that the fixed reply reached the same DM. Neither a callback 2xx nor
-   provider acceptance alone proves the two-way connection. On ambiguous send,
-   sleep/restart or expiry: stop, inspect and do not retry automatically.
+1. Review the previous outcome and obtain fresh authorization for the exact
+   text/reply and deadline. Do not automatically retry an uncertain attempt.
+2. Deploy the reviewed commit with only approved configuration changes. Render
+   Save only does not apply pending environment values, and Restart service
+   retains the previous deployed environment. A deployment is required.
+3. Establish and verify the exact event subscription on the resulting boot.
+   During the successful run, a prompt-only automation update did not restore
+   the server subscription after reboot; reapplying the exact trigger did.
+   An existing automation record is not proof that the current server subscribed.
+4. Inspect current boot status and explicitly arm once. Wait for observed stream
+   activity before the owner sends the fixed test. Pending connection is not a
+   reason to resend or rearm. Subscription setup consumes the absolute window.
+5. Require the owner event, its single bound reply result, and recipient
+   confirmation. On expiry, restart, or ambiguity, stop and review.
 
-The deadline is an absolute ISO UTC value read once at process startup, not a
-15-minute timer that starts when armed. Changing the Render variable requires a
-deployment; Save only does not change a running process, and Restart service
-retains the prior deployed environment. A new deployment also clears subscriptions
-and changes the boot ID. Therefore first finish deployment and connector
-preparation, then set the freshly approved deadline and deploy the reviewed commit,
-establish the authenticated subscription on that boot, inspect status and arm.
-Subscription setup consumes part of that window. It cannot be finalized with the
-expired deadline and then retained through a deadline-changing deployment. Do not
-extend or renew the deadline automatically if setup takes too long.
+This procedure does not authorize another live run. No deployment or runtime,
+credential, permission or cutoff change is part of the documentation wrap-up.
 
-No plugin install, security changes, credential generation, paid service/storage,
-or actual iMessage is authorized or performed by this implementation deployment.
+## Limits and future work
 
-Sources: https://photon.codes/docs/spectrum-ts/providers/imessage,
-https://photon.codes/docs/spectrum-ts/providers/imessage/connection-and-routing,
-https://photon.codes/docs/spectrum-ts/messages,
-https://developers.openai.com/plugins/build/mcp-events,
-https://github.com/photon-hq/spectrum-ts (MIT).
+The successful deployment passed 82 tests and the secret scan. Local tests use
+fixture keys, fake callbacks and loopback RPCs; the live sequence above is separate
+evidence. Dependencies are pinned: Spectrum core/provider 12.10.1, direct Photon
+SDK 2.2.0. See [SDK_REVIEW.md](SDK_REVIEW.md) before upgrading.
+
+State is in memory with no durable queue/database or persistent disk. Render Free
+sleep/restarts can break continuity, and the application intentionally fails
+closed. This one fixed-message proof does not establish arbitrary conversation,
+multimedia, sustained availability, exactly-once processing across restarts, or
+safe automatic recovery. Production work needs durable event/request state,
+idempotency/replay policy, subscription reconciliation, monitoring, separately
+approved message scope, and an explicit hosting/cost decision. No paid upgrade
+has been made by this repository work.
