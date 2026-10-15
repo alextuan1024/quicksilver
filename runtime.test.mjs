@@ -77,7 +77,7 @@ test('configured runtime remains disarmed until owner OAuth, subscription and ex
  await rpc(service,'events/subscribe',{name:'photon.test.received',arguments:{session:'quicksilver'},
   delivery:{mode:'webhook',url:'https://callback.example.com/photon',secret:'whsec_'+Buffer.alloc(32,7).toString('base64')}});
  assert.equal((await call(service,'arm_photon_test',{boot_id:next.boot_id})).state,'unavailable');
- assert.equal((await call(service,'arm_photon_test',{boot_id:status.boot_id})).state,'listening');
+ assert.equal((await call(service,'arm_photon_test',{boot_id:status.boot_id})).state,'connecting');
  assert.equal((await call(service,'arm_photon_test',{boot_id:status.boot_id})).state,'unavailable');assert.equal(starts,1);
  const space={id:`any;-;${owner}`,phone:'shared',type:'dm',__platform:'imessage'};
  const message={id:'fixture-message',platform:'imessage',direction:'inbound',timestamp:new Date(time),space,

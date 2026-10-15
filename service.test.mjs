@@ -71,7 +71,7 @@ test('fixture owner DM reaches signed event and one request-bound reply through 
  const boot_id=(await call('photon_test_status',{})).boot_id;
  assert.equal((await call('arm_photon_test',{boot_id})).state,'unavailable');
  await rpc('events/subscribe',{name:'photon.test.received',arguments:{session:'quicksilver'},delivery:{mode:'webhook',url:'https://callback.example.com/photon',secret:'whsec_'+signingBytes.toString('base64')}});
- assert.equal((await call('arm_photon_test',{boot_id})).state,'listening');
+ assert.equal((await call('arm_photon_test',{boot_id})).state,'connecting');
  const space={id:'fixture-dm',type:'dm',phone:'fixture-line',__platform:'imessage'};
  await receive(space,{space,id:'fixture-incoming',platform:'imessage',direction:'inbound',timestamp:new Date(now*1000),
   sender:{address:'+15550000001',service:'iMessage'},content:{type:'text',text:INCOMING_TEXT},

@@ -36,8 +36,11 @@ export function createPhotonTest({config={},transport,ready=()=>false,publish,ex
    state=['transport_ended','transport_error','token_expired','session_expired','transport_failed','stopped'].includes(reason)?reason:'transport_error';
  }
  async function stop() {terminal('stopped');await close();}
+ function activity(kind) {
+  if((kind==='heartbeat' || kind==='event') && state==='connecting' && active())state='listening';
+ }
  async function receive(space,message) {
-  if(state!=='listening' || !active())return;
+  if(!['connecting','listening'].includes(state) || !active())return;
   const timestamp=message.timestamp instanceof Date?message.timestamp.getTime():NaN;
   if(message.platform!=='imessage' || message.direction!=='inbound' || space.__platform!=='imessage' ||
    space.type!=='dm' || space.id!==config.dm || space.phone!==config.line ||
@@ -63,9 +66,9 @@ export function createPhotonTest({config={},transport,ready=()=>false,publish,ex
   if(name==='photon_test_status' && exact(args,[]))return status();
   if(name==='arm_photon_test') {
    if(!exact(args,['boot_id']) || args.boot_id!==boot_id || !active() || !transport || used)return {state:'unavailable'};
-   used=true;armedAt=now();state='listening';
+   used=true;armedAt=now();state='connecting';
    timer=setTimeout(()=>{void stop();},Math.max(1,deadline-now()));timer.unref?.();
-   try{await transport.start(receive,()=>active() && !['stopped','provider_accepted','unknown_outcome','callback_unknown','callback_rejected','transport_failed'].includes(state),terminal);if(!active() || state==='stopped')await stop();}
+   try{await transport.start(receive,()=>active() && !['stopped','provider_accepted','unknown_outcome','callback_unknown','callback_rejected','transport_failed'].includes(state),terminal,activity);if(!active() || state==='stopped')await stop();}
    catch{terminal('transport_failed');await close();}
    return {state};
   }

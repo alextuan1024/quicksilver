@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {PROJECT_ID,INCOMING_TEXT,REPLY_TEXT} from './photon.mjs';
+import {transportSummary,transportFailure} from './diagnostics.mjs';
 
 // Reviewed source gate, never an env or MCP switch. Startup remains disarmed;
 // only the owner-authorized, boot-bound arm can call start within its deadline.
@@ -42,13 +43,21 @@ function accepted(event,config,armedAt,now) {
 
 // Uses only public SDK APIs. Loader injection is for local fixtures, never chosen
 // by environment/HTTP/tool input. No Spectrum instance or provider is created.
-export function createPhotonTransport({config={},projectSecret,expiresAt,now=Date.now,sdkLoader=loadSdk}={}) {
+export function createPhotonTransport({config={},projectSecret,expiresAt,now=Date.now,sdkLoader=loadSdk,onDiagnostic=()=>{}}={}) {
  const route=Object.freeze({...config});
  let client,stream,timer,stopped=false,started=false,received=false,sent=false,tokenDeadline=0,onTerminal=()=>{};
+ let startedAt,heartbeatSeen=false,eventSeen=false;
  const deadline=Date.parse(expiresAt);
+ function record(phase,category,grpcCode=null) {
+  if(startedAt===undefined)return;
+  try{onDiagnostic(transportSummary({phase,category,grpcCode,elapsedMs:Math.max(0,Math.floor(now()-startedAt)),heartbeatSeen,eventSeen}));}
+  catch{/* Diagnostic failures must not change transport control flow. */}
+ }
+ function recordError(phase,error){const failure=transportFailure(error);record(phase,failure.category,failure.grpcCode);}
  async function stop(reason='stopped'){
   if(!stopped){
    stopped=true;
+   record('shutdown',reason);
    // Notify synchronously before cleanup awaits. This invalidates the request
    // even if a provider close is slow, and preserves uncertain in-flight sends.
    try{onTerminal(reason);}catch{/* No provider/request data is passed or logged. */}
@@ -57,35 +66,47 @@ export function createPhotonTransport({config={},projectSecret,expiresAt,now=Dat
   const currentStream=stream,currentClient=client;stream=undefined;client=undefined;
   await Promise.allSettled([currentStream?.close(),currentClient?.close()]);
  }
- return {stop,async start(receive,isActive=()=>true,terminal=()=>{}) {
+ return {stop,async start(receive,isActive=()=>true,terminal=()=>{},onActivity=()=>{}) {
   const armedAt=now();
   if(started || stopped || route.projectId!==PROJECT_ID || !projectSecret || !isActive() ||
    !/^\+[1-9]\d{7,14}$/.test(route.ownerAddress??'') || route.dm!==`any;-;${route.ownerAddress}` ||
    !Number.isFinite(deadline) || deadline<=armedAt || deadline>armedAt+3600_000)throw Error('transport_unavailable');
   if(sdkLoader===loadSdk && !PHOTON_LIVE_TRANSPORT_ALLOWED)throw Error('live_transport_locked');
-  started=true;onTerminal=terminal;
+  started=true;startedAt=armedAt;onTerminal=terminal;
   const active=()=>!stopped && isActive() && now()<deadline && (!tokenDeadline || now()<tokenDeadline);
+  const observe=kind=>{
+   if(!active())return;
+   if(kind==='heartbeat'){if(heartbeatSeen)return;heartbeatSeen=true;}
+   else {if(eventSeen)return;eventSeen=true;}
+   record('stream','observed');onActivity(kind);
+  };
+  let phase='sdk_load';
   try {
    const {issueTokens,createClient}=await sdkLoader();if(!active())return;
+   phase='token_exchange';
    const issuedAt=now();let authTimer;
    // Bound the wait; a late token result is discarded and never opens a client.
    const data=await Promise.race([issueTokens(PROJECT_ID,projectSecret),new Promise((_,reject)=>{
     authTimer=setTimeout(()=>reject(Error('token_exchange_timeout')),5000);
    })]).finally(()=>clearTimeout(authTimer));
    if(!active())return;
+   phase='route_selection';
    const line=selectLine(data,route.line);tokenDeadline=Math.min(deadline,issuedAt+data.expiresIn*1000-5000);
    if(!active())throw Error('token_expired');
    const remaining=tokenDeadline-now();
-   client=createClient({address:line.address,token:line.token,tls:true,retry:false,autoIdempotency:true,
+   phase='client_create';
+   client=createClient({address:line.address,token:line.token,tls:true,retry:false,autoIdempotency:true,onHeartbeat:()=>observe('heartbeat'),
     channelOptions:{'grpc.enable_retries':0},timeout:Math.min(5000,remaining)});
    timer=setTimeout(()=>{void stop(tokenDeadline<deadline?'token_expired':'session_expired');},remaining);timer.unref?.();
-   stream=client.messages.subscribeEvents({chat:route.dm});
+   phase='subscription';
+   stream=client.messages.subscribeEvents({chat:route.dm});record('subscription','started');
    const source=stream,sessionClient=client;
    const loop=(async()=>{
-    let reason='transport_ended';
+    let reason='transport_ended',loopPhase='stream';
     try {
      for await(const event of source) {
       if(!active()){reason=now()>=tokenDeadline?(tokenDeadline<deadline?'token_expired':'session_expired'):'stopped';break;}
+      observe('event');
       if(received || !accepted(event,route,armedAt,now()))continue;
       received=true;
       const message=event.message,guid=message.guid,dm=route.dm,writeId=randomUUID();
@@ -95,15 +116,17 @@ export function createPhotonTransport({config={},projectSecret,expiresAt,now=Dat
        reply:async text=>{
         if(sent || !active() || text!==REPLY_TEXT)throw Error('reply_unavailable');
         sent=true; // Reserve before the only outbound RPC; never retry ambiguity.
-        const result=await sessionClient.messages.sendText(dm,REPLY_TEXT,{replyTo:guid,clientMessageId:writeId,
-         enableLinkPreview:false,enableDataDetection:false});
-        return result?.guid?{id:result.guid}:undefined;
+        try {
+         const result=await sessionClient.messages.sendText(dm,REPLY_TEXT,{replyTo:guid,clientMessageId:writeId,
+          enableLinkPreview:false,enableDataDetection:false});
+         return result?.guid?{id:result.guid}:undefined;
+        }catch(error){recordError('send',error);throw error;}
        }};
-      await receive(space,bound);
+      loopPhase='receive';await receive(space,bound);loopPhase='stream';
      }
-    }catch{reason='transport_error'; /* Never expose errors or reconnect/catch up. */}
+    }catch(error){reason='transport_error';if(!stopped)recordError(loopPhase,error); /* Never reconnect/catch up. */}
     finally{await stop(reason);}
    })();void loop.catch(()=>{});
-  }catch{await stop('transport_failed');throw Error('transport_start_failed');}
+  }catch(error){if(!stopped)recordError(phase,error);await stop('transport_failed');throw Error('transport_start_failed');}
  }};
 }

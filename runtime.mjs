@@ -1,6 +1,7 @@
 import {createService} from './service.mjs';
 import {PROJECT_ID} from './photon.mjs';
 import {createPhotonTransport,PHOTON_LIVE_TRANSPORT_ALLOWED} from './photon-transport.mjs';
+import {logTransportDiagnostic} from './diagnostics.mjs';
 
 // Observed in Athena's Users page on 2026-10-14. The displayed managed number is
 // +17739371532; the SDK shared-pool routing value is the literal 'shared'.
@@ -22,7 +23,7 @@ export function createRuntimeService(env,{now=Date.now,jwks,postCallback,
   line:'shared',dm:`any;-;${VERIFIED_OWNER_ADDRESS}`}):undefined;
  // Construction does not connect; only the authenticated boot-bound arm does.
  const photonTransport=configured && transportAllowed===true?
-  transportFactory({config:photon,projectSecret,expiresAt,now}):undefined;
+  transportFactory({config:photon,projectSecret,expiresAt,now,onDiagnostic:logTransportDiagnostic}):undefined;
  return createService({
   issuer:'https://dev-ar7fhtveuwv8gobu.us.auth0.com/',
   resource:'https://quicksilver-kvt8.onrender.com/mcp',

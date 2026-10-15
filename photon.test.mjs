@@ -24,7 +24,7 @@ test('boot-bound explicit arm is single-use and cannot be replayed across restar
  const a=fixture(), b=fixture();
  assert.equal(a.counts().starts,0);
  assert.equal((await b.controller.call('arm_photon_test',{boot_id:a.controller.status().boot_id})).state,'unavailable');
- assert.equal((await a.arm()).state,'listening');await a.arm();assert.equal(a.counts().starts,1);
+ assert.equal((await a.arm()).state,'connecting');await a.arm();assert.equal(a.counts().starts,1);
  await a.controller.stop();assert.equal((await a.arm()).state,'unavailable');
 });
 test('exact sender, project, line, DM, inbound text and fresh timestamp are required',async()=>{

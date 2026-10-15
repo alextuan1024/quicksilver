@@ -25,6 +25,18 @@ new LLM or bot is created. The signed webhook callback must pass verification.
 The reply slot is consumed before the async send; errors/undefined result mean
 `unknown_outcome`, never retry. `provider_accepted` is not recipient delivery.
 
+Arming initially returns `connecting`. `listening` means the SDK has observed a
+heartbeat or decoded event on this stream; it does not prove owner-DM routing or
+future connectivity. A valid first owner event can proceed directly to delivery.
+Never ask the owner to resend or rearm merely because the connection is pending.
+The existing deadline remains the upper bound on the attempt.
+
+Transport diagnostics contain only a fixed event marker, allowlisted phase and
+category, numeric gRPC status (or null), elapsed milliseconds, and heartbeat/event
+seen booleans. Only the first heartbeat and first decoded event are recorded.
+Raw exceptions, metadata, credentials, phone/chat/message IDs and message content
+are excluded. An `unknown` category does not identify the underlying failure.
+
 Each process starts disarmed with a random boot ID. Activation requires the
 current boot ID, a verified subscription, private route configuration and a fresh
 absolute session deadline (maximum one hour). The boot may arm once. Deadline
@@ -52,8 +64,9 @@ owner/service, exact chat IDs, fresh timestamp, normal item type and no app,
 attachments, automatic/system/spam/corrupt/multipart content are checked before
 normalization into the existing controller. The controller's checks still apply.
 
-Token exchange is only a prepared code path: **it has never been run with real
-credentials.** Its wait is bounded to five seconds; late results are discarded.
+The October 15 live attempt reached transport startup, then `transport_error`,
+without a verified received event or reply. Two-way success remains unproven.
+Token exchange waits at most five seconds; late results are discarded.
 No auto-renewal occurs. Token expiry minus five seconds or the approved session
 expiry, whichever comes first, closes the stream and client. Stream error/end or
 earlier token expiry synchronously notifies the controller before cleanup awaits,
@@ -152,12 +165,13 @@ do not broaden subscriptions or discover unrelated chats if it differs.
 
 The deadline is an absolute ISO UTC value read once at process startup, not a
 15-minute timer that starts when armed. Changing the Render variable requires a
-new process; Save only does not change a running process. A restart also clears
-subscriptions and changes the boot ID. Therefore first finish deployment and
-connector preparation, then set the agreed deadline to 15 minutes ahead, restart,
+deployment; Save only does not change a running process, and Restart service
+retains the prior deployed environment. A new deployment also clears subscriptions
+and changes the boot ID. Therefore first finish deployment and connector
+preparation, then set the freshly approved deadline and deploy the reviewed commit,
 establish the authenticated subscription on that boot, inspect status and arm.
 Subscription setup consumes part of that window. It cannot be finalized with the
-expired deadline and then retained through a deadline-changing restart. Do not
+expired deadline and then retained through a deadline-changing deployment. Do not
 extend or renew the deadline automatically if setup takes too long.
 
 No plugin install, security changes, credential generation, paid service/storage,

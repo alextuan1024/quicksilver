@@ -13,3 +13,25 @@ export function requestSummary(method,path,body,headers,result) {
     status:result.status,outcome:outcomes.has(result.body?.error) ? result.body.error : result.body?.error ? 'rpc_error' : 'ok',
     ...(authFailures.has(result.authFailure) ? {authFailure:result.authFailure} : {})};
 }
+
+const transportPhases = new Set(['sdk_load','token_exchange','route_selection','client_create','subscription','stream','receive','send','shutdown']);
+const grpcCategories = ['unknown','cancelled','unknown','invalid_argument','deadline_exceeded','not_found','already_exists',
+  'permission_denied','resource_exhausted','failed_precondition','aborted','out_of_range','unimplemented','internal','unavailable','data_loss','unauthenticated'];
+const transportCategories = new Set([...grpcCategories,'started','observed','stopped','transport_ended','transport_error',
+  'transport_failed','token_expired','session_expired']);
+const safeGrpcCode = code => Number.isInteger(code) && code >= 0 && code <= 16 ? code : null;
+export function transportFailure(error) {
+  // The SDK carries provider text/context on errors. Read only the numeric status.
+  let grpcCode=null;
+  try { grpcCode=safeGrpcCode(error?.grpcCode); } catch { /* No getters or raw errors escape. */ }
+  return {category:grpcCode === null ? 'unknown' : grpcCategories[grpcCode],grpcCode};
+}
+export function transportSummary({phase,category,grpcCode,elapsedMs,heartbeatSeen,eventSeen}={}) {
+  return {event:'photon_transport',phase:transportPhases.has(phase)?phase:'unknown',
+    category:transportCategories.has(category)?category:'unknown',grpcCode:safeGrpcCode(grpcCode),
+    elapsedMs:Number.isSafeInteger(elapsedMs) && elapsedMs>=0?elapsedMs:0,
+    heartbeatSeen:heartbeatSeen===true,eventSeen:eventSeen===true};
+}
+export function logTransportDiagnostic(input) {
+  console.log(JSON.stringify(transportSummary(input)));
+}
