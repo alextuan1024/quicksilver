@@ -15,3 +15,18 @@ test('diagnostics expose only allowlisted discovery metadata and response status
   assert.equal(hostile.outcome,'rpc_error');
   assert.equal(requestSummary('GET','/mcp?token='+secret,{}, {}, {status:404}),null);
 });
+
+test('request diagnostics allowlist authentication categories and never copy arbitrary details', () => {
+  const categories=['bearer_missing','bearer_malformed','jwt_malformed','jwt_expired','jwt_claim_invalid',
+    'jwt_signature_invalid','jwt_algorithm_invalid','jwt_policy_invalid','jwks_key_invalid','jwks_unavailable','jwt_verification_failed'];
+  for(const category of categories) {
+    const summary=requestSummary('POST','/mcp',{}, {},{status:401,body:{error:'invalid_token'},authFailure:category});
+    assert.equal(summary.authFailure,category);
+    assert.deepEqual(Object.keys(summary).sort(),['authFailure','event','headerVersion','method','outcome','requestedVersion','status']);
+  }
+  for(const authFailure of ['must-never-be-logged',{message:'must-never-be-logged'},undefined]) {
+    const summary=requestSummary('POST','/mcp',{}, {},{status:401,body:{error:'invalid_token'},authFailure});
+    assert.equal(summary.authFailure,undefined);
+    assert.equal(JSON.stringify(summary).includes('must-never-be-logged'),false);
+  }
+});

@@ -46,3 +46,58 @@ test('OAuth rejects wrong issuer, audience, subject, scope, client, expiry and t
   assert.equal((await gate.authenticate(await headers({},keys.privateKey,'JWT'))).status,401);
   assert.equal((await gate.authenticate({authorization:'Bearer public-invalid-test-value'})).status,401);
 });
+
+test('authentication diagnostics distinguish fixed failure categories without changing HTTP errors', async () => {
+  const gate=createOAuthGate(config);
+  const cases=[
+    [{},'bearer_missing'],
+    [{authorization:''},'bearer_malformed'],
+    [{authorization:'Basic must-never-be-logged'},'bearer_malformed'],
+    [{authorization:'Bearer public-invalid-test-value'},'jwt_malformed'],
+    [await headers({exp:now-1}),'jwt_expired'],
+    [await headers({aud:'must-never-be-logged'}),'jwt_claim_invalid'],
+    [await headers({client_id:undefined}),'jwt_claim_invalid'],
+    [await headers({},keys.privateKey,'JWT'),'jwt_claim_invalid'],
+    [await headers({},otherKeys.privateKey),'jwt_signature_invalid'],
+    [await headers({iat:now+1}),'jwt_policy_invalid'],
+    [await headers({exp:now+3601}),'jwt_policy_invalid'],
+    [await headers({jti:''}),'jwt_policy_invalid'],
+  ];
+  const hs=await new SignJWT({}).setProtectedHeader({alg:'HS256'}).sign(new Uint8Array(32));
+  cases.push([{authorization:`Bearer ${hs}`},'jwt_algorithm_invalid']);
+  const challenge=(await gate.authenticate({})).headers;
+  for(const [input,category] of cases) {
+    const result=await gate.authenticate(input);
+    assert.equal(result.authFailure,category);
+    assert.deepEqual(result,{status:401,body:{error:'invalid_token'},headers:challenge,authFailure:category});
+    assert.equal(JSON.stringify(result).includes('must-never-be-logged'),false);
+  }
+  for(const [claims,status] of [[{},undefined],[{sub:'google-oauth2|other'},403],[{client_id:'other'},403],[{scope:'other'},403]]) {
+    const result=await gate.authenticate(await headers(claims));
+    assert.equal(result.status,status);assert.equal(result.authFailure,undefined);
+  }
+  const expired=createOAuthGate({...config,expiresAt:new Date(now*1000).toISOString()});
+  const result=await expired.authenticate(await headers());
+  assert.equal(result.status,503);assert.equal(result.authFailure,undefined);
+});
+
+test('key resolution failures log only fixed categories, including unavailable remote JWKS', async () => {
+  const {createRemoteJWKSet,customFetch}=await import('jose');
+  const goodHeaders=await headers();
+  const keyless=createOAuthGate({...config,jwks:createLocalJWKSet({keys:[]})});
+  assert.equal((await keyless.authenticate(goodHeaders)).authFailure,'jwks_key_invalid');
+  const invalidKey=createOAuthGate({...config,jwks:async()=>({})});
+  assert.equal((await invalidKey.authenticate(goodHeaders)).authFailure,'jwt_verification_failed');
+  for(const fetchImpl of [
+    async()=>{throw new TypeError('must-never-be-logged');},
+    async()=>{throw new DOMException('must-never-be-logged','TimeoutError');},
+    async()=>new Response('must-never-be-logged',{status:503}),
+    async()=>new Response('must-never-be-logged',{status:200}),
+  ]) {
+    const jwks=createRemoteJWKSet(new URL('https://fixture.example/jwks'),{[customFetch]:fetchImpl});
+    const result=await createOAuthGate({...config,jwks}).authenticate(goodHeaders);
+    assert.equal(result.status,401);assert.deepEqual(result.body,{error:'invalid_token'});
+    assert.equal(result.authFailure,'jwks_unavailable');
+    assert.equal(JSON.stringify(result).includes('must-never-be-logged'),false);
+  }
+});

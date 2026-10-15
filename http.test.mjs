@@ -12,6 +12,8 @@ test(`real HTTP OAuth server stays owner-locked with legacy key configured=${leg
     env.QUICKSILVER_SESSION_EXPIRES_AT = new Date(Date.now() + 30 * 60_000).toISOString();
   }
   const child = spawn(process.execPath, ['server.mjs'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+  let output='';
+  child.stdout.on('data',chunk=>{output+=chunk.toString();});
   try {
     const [line] = await Promise.race([once(child.stdout, 'data'), once(child, 'exit').then(() => { throw new Error('server exited before listening'); })]);
     const match = line.toString().match(/port=(\d+)/);
@@ -28,10 +30,14 @@ test(`real HTTP OAuth server stays owner-locked with legacy key configured=${leg
         const response = await fetch(url + path, { method: 'POST', headers, body: '{}' });
         assert.equal(response.status, path === '/proof' ? 403 : 401);
         if (path === '/mcp') assert.match(response.headers.get('www-authenticate'),/oauth-protected-resource/);
+        assert.deepEqual(await response.json(),{error:path === '/proof' ? 'operator_trigger_not_configured' : 'invalid_token'});
       }
     }
     assert.equal((await fetch(url + '/mcp', { method: 'POST', headers: { Origin: 'https://untrusted.example' }, body: '{}' })).status, 403);
     assert.equal((await fetch(url + '/mcp', { method: 'POST', body: 'x'.repeat(17000) })).status, 413);
   } finally { child.kill('SIGTERM'); await once(child, 'exit'); }
+  const summaries=output.split('\n').filter(line=>line.startsWith('{')).map(line=>JSON.parse(line));
+  assert.deepEqual(summaries.map(row=>row.authFailure),['bearer_missing','jwt_malformed']);
+  assert.equal(output.includes(fixtureKey),false);
 });
 }
