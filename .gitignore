@@ -2,3 +2,12 @@
 node_modules/
 *.log
 evidence/
+
+# Durable message databases contain private content.
+*.sqlite
+*.sqlite-*
+*.qsb
+operator-config.local.json
+restore-config.local.json
+.quicksilver-backup-*/
+.quicksilver-restore-*/

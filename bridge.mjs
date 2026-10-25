@@ -67,12 +67,12 @@ export async function postCallback(value, body, headers, { isActive = () => true
   });
 }
 
-export function createBridge({ key, authorize, expiresAt, now = Date.now, postCallback: post = postCallback, event = eventDefinition, tools, onTool } = {}) {
+export function createBridge({ key, authorize, expiresAt, now = Date.now, postCallback: post = postCallback, event = eventDefinition, tools, onTool, subscriptionStore } = {}) {
   const EVENT = event.name;
   const startedAt = now();
   const configuredExpiry = Date.parse(expiresAt);
   const enabled = (typeof authorize === 'function' || (typeof key === 'string' && key.length >= 32)) && Number.isFinite(configuredExpiry) && configuredExpiry > startedAt && configuredExpiry <= startedAt + MAX_SESSION_MS;
-  let subscription = null;
+  let subscription = subscriptionStore?.load() ?? null;
   let proof = null;
   let busy = false;
   let spent = false; // Never reset on unsubscribe or subscription expiry within this process.
@@ -104,11 +104,11 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
   }
   return {
     hasSubscription: () => active() && Boolean(subscription) && !busy,
-    async publish(data, guard = () => true) {
+    async publish(data, guard = () => true, delivery = {}) {
       if (!active() || !subscription || busy || !guard()) return false;
-      const target = subscription, id = randomUUID();
+      const target = subscription, id = delivery.eventId ?? randomUUID();
       const unchanged = () => active() && subscription === target && guard();
-      const result = await deliver(target, {eventId:id,name:EVENT,timestamp:new Date(now()).toISOString(),data,cursor:null},id,unchanged);
+      const result = await deliver(target, {eventId:id,name:EVENT,timestamp:delivery.timestamp ?? new Date(now()).toISOString(),data,cursor:null},id,unchanged);
       return unchanged() && result.status >= 200 && result.status < 300;
     },
     async handle(method, path, headers, body) {
@@ -148,7 +148,7 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
       try { url = callbackTarget(params.delivery.url).href; } catch { return failure(id, -32602, 'Invalid callback'); }
       if (rpcMethod === 'events/unsubscribe') {
         if (busy) return failure(id, -32000, 'Subscription busy');
-        if (subscription?.url === url) { subscription = null; proof = null; }
+        if (subscription?.url === url) { subscriptionStore?.clear(); subscription = null; proof = null; }
         return success({});
       }
       const secret = params.delivery.secret;
@@ -162,6 +162,7 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
         const challenge = randomUUID();
         const result = await deliver(target, { type: 'verification', challenge }, randomUUID());
         if (!(result.status >= 200 && result.status < 300 && equal(result.body?.challenge, challenge)) || !active() || now() >= target.expires) throw new Error('challenge failed');
+        subscriptionStore?.save(target);
         subscription = target;
         return success({ id: target.id, refreshBefore: new Date(target.expires).toISOString(), cursor: null, truncated: false });
       } catch { return failure(id, -32015, 'Callback verification failed', { reason: 'challenge_failed' }); }

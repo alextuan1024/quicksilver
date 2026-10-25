@@ -1,8 +1,10 @@
 import { createOAuthGate } from './oauth.mjs';
 import { createBridge, isDiscoveryRequest } from './bridge.mjs';
 import {createPhotonTest,photonEvent,photonTools} from './photon.mjs';
+import {createMessageService} from './message-service.mjs';
 
 export function createService(config) {
+  if (config.messageHandling) return createMessageService(config);
   const gate = createOAuthGate(config);
   const bridge = createBridge({expiresAt:config.expiresAt,now:config.now,
     authorize:(headers,options)=>gate.authenticate(headers,options)});
