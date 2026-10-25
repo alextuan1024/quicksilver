@@ -1,5 +1,11 @@
 # Local OAuth final audit — October 25, 2026
 
+**Historical assessment, superseded for dependency status:** the subsequently
+authorized [remediation](dependency-remediation.md) updates the affected packages,
+raises the runtime floor to Node 22.23.4 and produces a zero-vulnerability audit.
+The original source review and baseline evidence below are retained as history;
+the dependency findings are no longer outstanding in the current branch.
+
 ## Reviewed implementation
 
 - Branch: `feat/local-oauth`.

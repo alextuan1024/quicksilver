@@ -59,7 +59,7 @@ version-specific findings; do not assume them for other SDK versions.
 
 ## Validation and local operation
 
-Target runtime: Node 22.13 or newer within Node 22 (built-in SQLite). The successful deployment passed **82 tests and the
+Target runtime: Node 22.23.4 or newer within Node 22 (built-in SQLite and patched native fetch). The successful deployment passed **82 tests and the
 secret-pattern scan**. Tests cover OAuth/discovery, signed callbacks, owner and
 message filtering, lifecycle/expiry, single-attempt behavior, diagnostics, and
 real SDK calls to loopback gRPC fixtures. CI uses fixture keys and injected
@@ -141,6 +141,9 @@ encrypted snapshots and paused restoration are implemented; see the
 Local OAuth is now available through explicit trusted composition; see the
 [local OAuth host contract](docs/local-oauth.md). Verified Photon replay and live
 deployment remain separate work.
+
+The [dependency remediation record](docs/dependency-remediation.md) describes the
+scoped OpenTelemetry override, patched Undici, runtime floor and compatibility checks.
 
 ## Remaining work
 

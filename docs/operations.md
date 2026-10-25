@@ -2,7 +2,7 @@
 
 These controls belong to the optional durable message component. They do not
 activate `runtime.mjs`, connect to Photon, deploy anything, or provide verified
-provider replay. Use Node 22.13+ within Node 22. SQLite may print its experimental
+provider replay. Use Node 22.23.4+ within Node 22. SQLite may print its experimental
 feature warning on this version.
 
 ## Pause and inspect

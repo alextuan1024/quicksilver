@@ -7,7 +7,7 @@ Auth0 proof path. No environment variable switches them to local OAuth.
 
 ## Host contract
 
-Run one Node >=22.13.0 <23 process with a private persistent directory. Supply:
+Run one Node >=22.23.4 <23 process with a private persistent directory. Supply:
 
 - A canonical root HTTPS issuer ending in `/`, such as `https://quicksilver.example/`, and the same
   origin's `/mcp` resource. Both values are pinned configuration.
@@ -174,12 +174,11 @@ any required identity migration, and complete Photon replay/reconnect work.
 Replay cursors, Photon catch-up and token renewal integration remain
 **unimplemented**. The runtime has not been switched, deployed or activated.
 
-The October 25 dependency audit also reports 14 existing affected dependency
-entries (13 moderate, one high) in the pinned Spectrum/Photon/OpenTelemetry and
-`undici` chains. Their package paths and versions are unchanged by this stage;
-none are in the added OAuth dependency chain. Dependency remediation and SDK
-compatibility verification remain required before launch. See the
-[completion record](superpowers/plans/2026-10-25-local-oauth.md) for exact checks.
+The initial October 25 audit found 14 affected dependency entries. The authorized
+[dependency remediation](dependency-remediation.md) now updates npm Undici to
+7.30.1 and the coordinated OpenTelemetry components to 0.219.0/core 2.8.0. The
+fresh audit reports zero known vulnerabilities. The declared runtime floor is
+Node 22.23.4, with bundled Undici 6.29.1. Messaging SDK versions are preserved.
 
 The [final dependency and review audit](local-oauth-final-audit.md) distinguishes
 the tested OAuth path from SDK dependencies and Node’s bundled HTTP client. It
