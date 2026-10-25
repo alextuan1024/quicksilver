@@ -138,12 +138,16 @@ prevents competing workers. Do not copy a running database as a backup or resume
 from an old snapshot automatically. Persistent pause, explicit request recovery,
 encrypted snapshots and paused restoration are implemented; see the
 [operator procedures](docs/operations.md) for the local API and offline CLI.
-Local OAuth, verified Photon replay and live deployment remain separate work.
+Local OAuth is now available through explicit trusted composition; see the
+[local OAuth host contract](docs/local-oauth.md). Verified Photon replay and live
+deployment remain separate work.
 
 ## Remaining work
 
-Before considering live ongoing conversation: complete the sibling designs for
-authentication, verified replay, retention and hosted operation, then validate the durable message component against the real provider. Reassess hosting availability
+Before considering live ongoing conversation: validate local OAuth with the real
+Google/ChatGPT clients, implement verified replay and production activation,
+and choose retention and hosted operation. Validate the durable message component
+against the real provider. Reassess hosting availability
 and costs with the owner. Free service sleep/restarts can interrupt an in-memory
 connection; this prototype deliberately stops instead of recovering unattended.
 Any expansion needs separate review and authorization.

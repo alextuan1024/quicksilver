@@ -26,7 +26,8 @@ export function createMessageService(config) {
   const interval=options.workerIntervalMs??1000,timeout=options.sendTimeoutMs??5000;
   if(!Number.isSafeInteger(interval)||interval<0||interval>60000||!Number.isSafeInteger(timeout)||timeout<1||timeout>30000)
     throw new MessageError('invalid_worker_configuration');
-  const gate=createOAuthGate({...config,scope:MESSAGE_SCOPE});
+  // Only trusted in-process composition can supply a local authorization gate.
+  const gate=config.authorizationGate??createOAuthGate({...config,scope:MESSAGE_SCOPE});
   const store=openMessageStore({path:options.databasePath,now,identity:{...route,issuer:config.issuer,
     clientId:config.clientId,subject:config.ownerSubject}});
   store.recover();
