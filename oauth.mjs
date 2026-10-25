@@ -14,7 +14,7 @@ function verificationFailure(error) {
   return 'jwt_verification_failed';
 }
 export function createOAuthGate({ issuer, resource, clientId, ownerSubject, expiresAt,
-  now = Date.now, jwks } = {}) {
+  now = Date.now, jwks, scope = SCOPE } = {}) {
   // Configuration is trusted operator input, never derived from token claims or headers.
   const issuerUrl = new URL(issuer);
   const resourceUrl = new URL(resource);
@@ -30,11 +30,11 @@ export function createOAuthGate({ issuer, resource, clientId, ownerSubject, expi
     deadline > startedAt && deadline <= startedAt + MAX_SESSION_MS;
   const keys = jwks ?? createRemoteJWKSet(new URL('.well-known/jwks.json', issuerUrl), {timeoutDuration:5000});
   const metadataUrl = new URL('/.well-known/oauth-protected-resource' + resourceUrl.pathname, resourceUrl).href;
-  const challenge = `Bearer resource_metadata="${metadataUrl}", scope="${SCOPE}"`;
+  const challenge = `Bearer resource_metadata="${metadataUrl}", scope="${scope}"`;
   const failure = (status, error) => ({status, body:{error}, headers:{'WWW-Authenticate':challenge}});
   return {
     get enabled() { return configured && now() < deadline; },
-    metadata: { resource, authorization_servers:[issuer], scopes_supported:[SCOPE], bearer_methods_supported:['header'] },
+    metadata: { resource, authorization_servers:[issuer], scopes_supported:[scope], bearer_methods_supported:['header'] },
     // Only trusted request routing may waive the session check for discovery.
     async authenticate(headers, {requireSession = true} = {}) {
       const match = /^Bearer ([A-Za-z0-9._~-]+)$/.exec(headers.authorization ?? '');
@@ -57,9 +57,9 @@ export function createOAuthGate({ issuer, resource, clientId, ownerSubject, expi
             payload.exp <= payload.iat || payload.exp-payload.iat > 3600 || typeof payload.jti !== 'string' || !payload.jti.length) return invalid('jwt_policy_invalid');
         if (!ownerConfigured) return failure(503,'owner_or_session_not_configured');
         if (payload.sub !== ownerSubject || payload.client_id !== clientId ||
-            typeof payload.scope !== 'string' || !payload.scope.split(' ').includes(SCOPE)) return failure(403,'insufficient_access');
+            typeof payload.scope !== 'string' || !payload.scope.split(' ').includes(scope)) return failure(403,'insufficient_access');
         if (requireSession && (!configured || now() >= deadline)) return failure(503,'owner_or_session_not_configured');
-        return {principal:{issuer,subject:payload.sub,clientId,scope:SCOPE}};
+        return {principal:{issuer,subject:payload.sub,clientId,scope}};
       } catch (error) { return invalid(keyFailure ?? verificationFailure(error)); }
     },
   };
