@@ -15,8 +15,8 @@ was merged through [PR #3](https://github.com/alextuan1024/quicksilver/pull/3).
 The local `feat/durable-replay-and-reconnect` branch now also implements durable
 MCP replay and future-only Photon reconnect/token renewal, including the real
 SDK adapter and explicit OAuth/message host composition. Implementation commit:
-`abf36788759773272fa64b702ec93fe376b704d7`. This work is committed locally,
-not pushed or in a PR.
+`abf36788759773272fa64b702ec93fe376b704d7`. These changes are on the feature
+branch for review; they do not activate live messaging.
 
 Latest verification: **200/200 tests** on Node 22.23.4; independent review passed
 **41 targeted tests** with no actionable findings. Full/production audits reported

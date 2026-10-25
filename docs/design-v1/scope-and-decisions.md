@@ -47,7 +47,7 @@ Locally implemented next-stage components: [MCP replay cursors](../event-replay.
 and an optional [generic catch-up controller](../photon-recovery.md), retained with
 its fixtures for deferred work. [Future-only live SDK/host composition](../photon-live.md)
 is now implemented and locally tested at `abf36788759773272fa64b702ec93fe376b704d7`
-on the unpushed feature branch: 200 full-suite tests and 41 independent targeted
+on the feature branch: 200 full-suite tests and 41 independent targeted
 tests passed, with no actionable review findings. Still unfinished for V1: production
 listener/deployment integration and activation policy; real-provider acceptance;
 and any required Auth0-to-Google message-store identity migration. The one-hour activation limit

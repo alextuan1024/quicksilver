@@ -52,7 +52,7 @@ are dated history, superseded for the current runtime and suite size.
 
 ## Latest local implementation and verification
 
-The unpushed branch `feat/durable-replay-and-reconnect` contains:
+The feature branch `feat/durable-replay-and-reconnect` contains:
 
 | Local milestone | Commit |
 | --- | --- |
@@ -69,8 +69,9 @@ vulnerabilities; the dependency tree is valid. The secret scan passed 56 source
 files, and changed-file secret, documentation and whitespace checks passed.
 
 These results belong to the implementation commit above; this documentation-only
-update does not rerun application tests or claim live acceptance. The branch has
-not been pushed or submitted as a PR, and no remote CI ran for these local commits.
+update does not rerun application tests or claim live acceptance. Implementation
+verification was local; check remote CI against the exact published PR commit.
+No GitHub Actions workflow is configured in this branch.
 See [the live host contract](photon-live.md), [MCP replay](event-replay.md), and the
 [implementation/verification record](superpowers/plans/2026-10-25-future-live.md).
 The optional [historical catch-up controller](photon-recovery.md) is preserved but
