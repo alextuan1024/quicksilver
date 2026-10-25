@@ -1,18 +1,20 @@
-# Progress and remaining V1 work — October 25, 2026
+# Progress and remaining V1 work — October 26, 2026
 
 ## Verified repository baseline
 
-Both implementation PRs are merged into the private `alextuan1024/quicksilver`
-repository. This update started from freshly fetched `main` at
-`b064f20c5edd01ac229ef00687bdb548294e58fa`:
+The durable-message and OAuth implementation PRs, plus docs PR #3, are merged
+into the private `alextuan1024/quicksilver` repository. The local feature branch
+starts from their verified main baseline,
+`da058749aebc1bbb6d18c3759106d45488448d81`:
 
 | Work | Implementation head | Merged result |
 | --- | --- | --- |
 | Durable messaging and recovery | `78c4ce75f7e4d47ca860546676bab7a52d89cd7e` | [PR #1](https://github.com/alextuan1024/quicksilver/pull/1), merge `5f7c2140f0be1329fba4b9bafd8e71e952f21650` |
 | Local OAuth and dependency remediation | `9f7de7ada3a8c45a738a212dcb58470687471f01` | [PR #2](https://github.com/alextuan1024/quicksilver/pull/2), merge `b064f20c5edd01ac229ef00687bdb548294e58fa` |
+| Progress documentation | `907f25610c27f15685e5d0e42ef8313331909554` | [PR #3](https://github.com/alextuan1024/quicksilver/pull/3), merge `da058749aebc1bbb6d18c3759106d45488448d81` |
 
-Merge metadata, source, tests, package manifest and lockfile were rechecked for
-this update. The declared runtime is **Node >=22.23.4 <23**, not Node 22.13 or 24.
+Merge metadata was verified before feature work; this progress update rechecks
+the local commits and recorded verification results without fetching remote state. The declared runtime is **Node >=22.23.4 <23**, not Node 22.13 or 24.
 The known four dependency advisories were remediated with npm Undici 7.30.1 and
 coordinated Photon OpenTelemetry overrides at 0.219.0/core 2.8.0. The dated full
 and production audits reported zero known vulnerabilities; see the
@@ -31,6 +33,12 @@ and production audits reported zero known vulnerabilities; see the
 - **Authentication:** mature OAuth/OIDC libraries, pinned Google subject and MCP
   client/redirect/resource/scope, S256 PKCE, persistent grants, refresh rotation
   and revocation, plus explicit HTTP composition with the message component.
+- **MCP replay:** authenticated durable cursors, safe acknowledgment positions,
+  atomic subscription refresh, stable event IDs and restored-history truncation.
+- **Future-only Photon integration:** real SDK token acquisition, exact-DM live
+  subscription, bounded reconnect, token renewal, shutdown/pause/expiry fencing
+  and explicit OAuth/message host composition. Disconnected replies remain queued;
+  uncertain sends never automatically retry on a new session.
 - **Dependency compatibility:** loopback trace/log correlation, metrics export and
   metadata HTTP tests cover the coordinated updates without live account access.
 
@@ -42,21 +50,38 @@ are the implementation-stage results, not a test rerun or live acceptance claim
 for this documentation-only change. Earlier 82/117/140-test and Node 22.13 records
 are dated history, superseded for the current runtime and suite size.
 
-## Local replay stage after PR #3
+## Latest local implementation and verification
 
-The next feature branch starts from merged docs PR #3 at
-`da058749aebc1bbb6d18c3759106d45488448d81`. Its MCP replay component and generic
-recovery controller are local additions, not a deployed or published provider
-integration. [MCP replay](event-replay.md) and [Photon recovery](photon-recovery.md)
-document their contracts and remaining gaps. The 143-test result above remains
-the earlier merged implementation's evidence; see the [new-stage plan](superpowers/plans/2026-10-25-replay-reconnect.md) for final
-verification rather than treating that count as current.
+The unpushed branch `feat/durable-replay-and-reconnect` contains:
+
+| Local milestone | Commit |
+| --- | --- |
+| Durable MCP replay and optional catch-up controller | `ac585abaeeb4f3ba464ee468ee7a3b97e3a9fdc5` |
+| Defer historical Photon catch-up from V1 | `425fc34d2d697096cce035c9e27f392aac8d72c5` |
+| Future-only reconnect/renewal, real SDK adapter and trusted host wiring | `abf36788759773272fa64b702ec93fe376b704d7` |
+
+The latest full suite passed **200/200 on Node 22.23.4**, with zero failures or
+skips. Independent final review passed **41/41 targeted tests** and found no
+actionable issues. Coverage includes actual SDK loopback RPC filtering/authentication,
+renewal, cancellation, duplicate delivery, OAuth/SQLite host restarts, SIGKILL
+recovery and uncertain sends. Full and production audits report zero known
+vulnerabilities; the dependency tree is valid. The secret scan passed 56 source
+files, and changed-file secret, documentation and whitespace checks passed.
+
+These results belong to the implementation commit above; this documentation-only
+update does not rerun application tests or claim live acceptance. The branch has
+not been pushed or submitted as a PR, and no remote CI ran for these local commits.
+See [the live host contract](photon-live.md), [MCP replay](event-replay.md), and the
+[implementation/verification record](superpowers/plans/2026-10-25-future-live.md).
+The optional [historical catch-up controller](photon-recovery.md) is preserved but
+is not a V1 launch requirement.
 
 ## Production integration is unfinished
 
 `server.mjs` still constructs `runtime.mjs`, whose Auth0 configuration selects the
 bounded in-memory proof. It does not select `messageHandling` or
-`createLocalMessageService`. The new factory requires trusted host configuration;
+`createLocalMessageService` / `createPhotonMessageHost`. The new host factory
+requires trusted configuration and explicit `start()`;
 no environment variable activates it. The one-hour message activation ceiling
 also remains in the new composition. Merging the modules did not switch or deploy
 the runtime.
@@ -80,8 +105,8 @@ explains why the new live implementation uses a separate controller.
 
 ## Remaining V1 work
 
-The recommended order is implementation and local reliability first, followed
-by operational setup and explicitly approved live acceptance:
+The local components are implemented. Remaining work is production integration,
+operational setup and explicitly approved live acceptance:
 
 1. **Accept the local MCP replay implementation.** Durable cursor replay now exists
    for retained message events, including conservative acknowledgment positions,
@@ -98,7 +123,8 @@ by operational setup and explicitly approved live acceptance:
 3. **Integrate the host into a production deployment and activation policy.** The
    explicit local host factory now composes OAuth, messages and the Photon lifecycle.
    Supply the production HTTP/TLS listener, private storage, trusted configuration
-   and monitoring; the default server still selects the parked proof. Decide and implement the
+   and monitoring; the default server still selects the parked proof. Decide and
+   implement the
    ongoing activation policy; do not automatically extend the current one-hour
    limit. An Auth0-bound message database cannot be reopened under a Google `sub`:
    design and implement an operator-reviewed identity migration if such state
@@ -121,9 +147,8 @@ by operational setup and explicitly approved live acceptance:
    discovery, PKCE, refresh and revocation behavior. Plan any Auth0 cutover only
    after identity/state migration and rollback are ready. Fixtures do not prove
    provider acceptance; credential setup has not been done in this phase.
-7. **Run integrated reliability and recovery drills.** Extend local fixtures for
-   MCP replay and future-only reconnect, then perform bounded authorized
-   provider/ChatGPT tests:
+7. **Run integrated reliability and recovery drills.** Repeat the covered local
+   scenarios in the chosen host and bounded authorized provider/ChatGPT tests:
    interruption during persistence/callback/claim/send, duplicate/out-of-order
    delivery, expiry/renewal, unknown-send reconciliation, pause/resume and fenced
    backup restoration. Confirm new messages resume after reconnect without promising

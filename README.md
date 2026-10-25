@@ -5,19 +5,29 @@ the owner's Mac. Durable messaging, recovery controls and local OAuth are merged
 and locally tested; production integration and live acceptance remain unfinished.
 No separate LLM bot, arbitrary-recipient send tool, media or group support.
 
-## Current progress — October 25, 2026
+## Current progress — October 26, 2026
 
-[PR #1](https://github.com/alextuan1024/quicksilver/pull/1) (durable messaging and
-recovery) and [PR #2](https://github.com/alextuan1024/quicksilver/pull/2) (local OAuth
-and dependency remediation) are merged into `main`. The current supported runtime
-is **Node >=22.23.4 <23**. The merged implementation passed 143 local tests; its
-full and production dependency audits reported zero known vulnerabilities.
-These are dated verification results, not evidence of live readiness.
+Durable messaging/recovery and local OAuth/dependency fixes are merged through
+[PR #1](https://github.com/alextuan1024/quicksilver/pull/1) and
+[PR #2](https://github.com/alextuan1024/quicksilver/pull/2); the progress-doc update
+was merged through [PR #3](https://github.com/alextuan1024/quicksilver/pull/3).
 
-The default server still selects the bounded Auth0 proof path. The new components
-require explicit trusted host composition; merging them does not deploy or activate
-the channel. See the [progress and remaining V1 tasks](docs/status.md) for completed
-work, implementation gaps, operational decisions and acceptance gates.
+The local `feat/durable-replay-and-reconnect` branch now also implements durable
+MCP replay and future-only Photon reconnect/token renewal, including the real
+SDK adapter and explicit OAuth/message host composition. Implementation commit:
+`abf36788759773272fa64b702ec93fe376b704d7`. This work is committed locally,
+not pushed or in a PR.
+
+Latest verification: **200/200 tests** on Node 22.23.4; independent review passed
+**41 targeted tests** with no actionable findings. Full/production audits reported
+zero known vulnerabilities; secret, dependency and documentation checks passed.
+These are local fixture/loopback results, not live Google/Photon/ChatGPT acceptance.
+The supported runtime remains **Node >=22.23.4 <23**.
+
+Historical Photon catch-up is deferred: messages sent during disconnects may be
+missed. Durable admitted requests, MCP replay and uncertain-send safeguards remain
+required. The default server still selects the parked Auth0 proof; no deployment
+or activation occurred. See [progress and remaining V1 tasks](docs/status.md).
 
 ## Verified result — October 15, 2026
 
@@ -78,8 +88,9 @@ version-specific findings; do not assume them for other SDK versions.
 
 Target runtime: **Node >=22.23.4 <23** (built-in SQLite and patched native fetch).
 The October 15 proof deployment passed 82 tests and the secret-pattern scan.
-The merged October 25 implementation passed **143/143 local tests**, including
-durable messaging/recovery, OAuth and dependency compatibility. Local tests use
+The merged OAuth/dependency milestone passed 143 tests. The latest local replay
+and live SDK integration passed **200/200 tests**, including process interruption,
+renewal, scoped RPC filtering and uncertain-send recovery. Local tests use
 fixture keys, injected providers and loopback servers; they do not establish
 live Google, Photon or ChatGPT acceptance. No GitHub Actions workflow is configured;
 CI remains recommended work, not completed verification.

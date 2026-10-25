@@ -1,11 +1,14 @@
 # quicksilver V1 Design
 
-Design checkpoint: October 23, 2026; implementation status updated October 25, 2026.
+Design checkpoint: October 23, 2026; implementation status updated October 26, 2026.
 Build an owner-only, general-text iMessage channel into the existing Athena,
 independent of the owner’s Mac, using one small always-on server with durable storage.
 Durable messaging/recovery and local OAuth/dependency remediation are merged in
-PRs #1 and #2. Production host integration, future-only reconnect/renewal and live acceptance
-remain unfinished; provider, budget and purchases remain undecided.
+PRs #1 and #2. The local feature branch also implements MCP replay and
+future-only Photon reconnect/renewal with SDK/host wiring. Its latest full suite
+passed 200 tests; independent review passed 41 targeted tests with no findings.
+Production deployment/activation and live acceptance remain unfinished; hosting
+provider, budget and purchases remain undecided.
 
 See [current progress and remaining V1 work](status.md) for merge evidence, the
 Node >=22.23.4 <23 requirement and the distinction between tested local modules
