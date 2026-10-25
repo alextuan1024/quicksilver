@@ -180,3 +180,8 @@ entries (13 moderate, one high) in the pinned Spectrum/Photon/OpenTelemetry and
 none are in the added OAuth dependency chain. Dependency remediation and SDK
 compatibility verification remain required before launch. See the
 [completion record](superpowers/plans/2026-10-25-local-oauth.md) for exact checks.
+
+The [final dependency and review audit](local-oauth-final-audit.md) distinguishes
+the tested OAuth path from SDK dependencies and Node’s bundled HTTP client. It
+records the independent final approval and recommends patched Node 22.23.4 for
+further acceptance work.

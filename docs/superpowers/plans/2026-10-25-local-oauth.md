@@ -61,7 +61,7 @@
 - Task 3: complete. Integration tests failed before composition, then pass for local-token claim/reply, revocation, inactive session discovery, bounded JSON and browser/host rejection.
 - Independent security review found two P2 defects: an incomplete OAuth POST could hold the serialized queue/shutdown; a noncanonical issuer without a slash could construct a wrong-host redirect. Both were reproduced by failing regressions before correction. Active OAuth requests now abort on an absolute deadline; configuration rejects noncanonical issuer/resource values before opening SQLite.
 - Reviewer also observed Koa's raw transport error stack. Both provider and Koa error channels are now handled without raw logging; the incomplete-request regression verifies no console error output.
-- No authentication bypass was found by the reviewer. No review findings were deferred. Review fixes were verified with regression tests and the final full suite, rather than a second independent review pass.
+- No authentication bypass was found by the reviewer. No review findings were deferred. Review fixes were first verified with regression tests and the full suite. At the user coordinator’s request, the independent reviewer then rechecked final commit `b462b839b487bb33165c5cdb94baf3069b795f0b` and approved the local component, with 23/23 supported-version targeted tests and no remaining source-level findings.
 - Ruling: keep the existing one-hour activation boundary — runtime activation remains outside this local component. Cost: no unattended ongoing channel until a production policy is implemented.
 - Ruling: separate OAuth SQLite state from message backups and require fresh authorization after restore — restoring revoked credentials would be unsafe. Cost: operator reconnection; coordinated auth restore is unimplemented.
 - Ruling: retain the existing Auth0 runtime and use the Google subject for the optional local component — silently changing a message database's owner binding would weaken isolation. Cost: migration of existing Auth0-bound message stores needs separate implementation.
@@ -77,3 +77,10 @@
 - `npm audit --omit=dev`: **14 affected dependency entries (13 moderate, 1 high)**. All affected package paths and versions are unchanged from the predecessor commit. These are in the existing Spectrum/Photon/OpenTelemetry and `undici` dependency chains, not the added OAuth libraries. They remain unresolved and need a separate dependency remediation/compatibility pass before launch. No audit-wide automatic upgrade was applied to the pinned transport SDKs.
 - The high entry is `undici` 7.30.0 (EventSource memory exhaustion, subresource-integrity algorithm normalization, and excessive content-encoding error handling); the moderate root advisory concerns OpenTelemetry baggage memory allocation, propagated through its dependents.
 - No push, PR modification, merge, deployment, real Google/ChatGPT account connection, real persistent grant, Auth0 setting change, live messaging or purchase occurred.
+
+## Requested final audit
+
+The [final audit](../../local-oauth-final-audit.md) records independent re-review,
+exact dependency advisories, baseline equality, runtime/import reachability,
+patched version options and the separate remediation decision. No runtime or
+dependency changes were made during that audit.
