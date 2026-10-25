@@ -1,7 +1,23 @@
 # Quicksilver
 
-A bounded Photon iMessage ↔ existing Athena connection proof, hosted on Render
-Free independently of the owner's Mac. No separate LLM bot or general send tool.
+An owner-only Photon iMessage channel into the existing Athena, independent of
+the owner's Mac. Durable messaging, recovery controls and local OAuth are merged
+and locally tested; production integration and live acceptance remain unfinished.
+No separate LLM bot, arbitrary-recipient send tool, media or group support.
+
+## Current progress — October 25, 2026
+
+[PR #1](https://github.com/alextuan1024/quicksilver/pull/1) (durable messaging and
+recovery) and [PR #2](https://github.com/alextuan1024/quicksilver/pull/2) (local OAuth
+and dependency remediation) are merged into `main`. The current supported runtime
+is **Node >=22.23.4 <23**. The merged implementation passed 143 local tests; its
+full and production dependency audits reported zero known vulnerabilities.
+These are dated verification results, not evidence of live readiness.
+
+The default server still selects the bounded Auth0 proof path. The new components
+require explicit trusted host composition; merging them does not deploy or activate
+the channel. See the [progress and remaining V1 tasks](docs/status.md) for completed
+work, implementation gaps, operational decisions and acceptance gates.
 
 ## Verified result — October 15, 2026
 
@@ -29,11 +45,12 @@ preserved on Render Free. No activation follows a restart automatically, and a
 future live test requires fresh explicit approval. This docs-only update does not
 deploy or change configuration.
 
-## Connection and controls
+## Parked proof connection and controls
 
 The path is Photon managed iMessage → strict one-owner transport → authenticated
 relay → signed MCP event → existing Athena → request-bound reply → original DM.
-State is deliberately in memory; this prototype does not implement a durable relay.
+This default proof path keeps state in memory. The optional durable component
+described below has separate SQLite-backed state.
 
 - Auth0 RS256/RFC 9068 tokens must match the pinned issuer, audience, client,
   verified owner, scope, and bounded token-lifetime policy.
@@ -59,11 +76,13 @@ version-specific findings; do not assume them for other SDK versions.
 
 ## Validation and local operation
 
-Target runtime: Node 22.23.4 or newer within Node 22 (built-in SQLite and patched native fetch). The successful deployment passed **82 tests and the
-secret-pattern scan**. Tests cover OAuth/discovery, signed callbacks, owner and
-message filtering, lifecycle/expiry, single-attempt behavior, diagnostics, and
-real SDK calls to loopback gRPC fixtures. CI uses fixture keys and injected
-transports; it does not contact Photon with real credentials or send iMessages.
+Target runtime: **Node >=22.23.4 <23** (built-in SQLite and patched native fetch).
+The October 15 proof deployment passed 82 tests and the secret-pattern scan.
+The merged October 25 implementation passed **143/143 local tests**, including
+durable messaging/recovery, OAuth and dependency compatibility. Local tests use
+fixture keys, injected providers and loopback servers; they do not establish
+live Google, Photon or ChatGPT acceptance. No GitHub Actions workflow is configured;
+CI remains recommended work, not completed verification.
 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund
@@ -72,10 +91,11 @@ node scan.mjs
 node server.mjs
 ```
 
-The existing Render Free service uses those install/test/scan commands, starts
-`node server.mjs`, and exposes `/healthz`. Auto-deploy is off; no persistent disk
-or database is configured. A docs-only push is not a deployment. No secrets
-belong in this repository. Local evidence and dependencies remain ignored.
+The proof deployment record describes a Render Free service using those
+install/test/scan commands and starting `node server.mjs` with `/healthz`. At that checkpoint auto-deploy was off,
+and no persistent disk or database was configured. This update does not recheck
+the live service or upgrade its Node runtime. A docs-only push is not a deployment.
+No secrets belong in this repository. Local evidence and dependencies remain ignored.
 
 `/proof` is denied. The optional synthetic proof uses its owner-gated MCP tool,
 a verified callback, and its own one-shot nonce acknowledgment. It is separate
@@ -147,13 +167,14 @@ scoped OpenTelemetry override, patched Undici, runtime floor and compatibility c
 
 ## Remaining work
 
-Before considering live ongoing conversation: validate local OAuth with the real
-Google/ChatGPT clients, implement verified replay and production activation,
-and choose retention and hosted operation. Validate the durable message component
-against the real provider. Reassess hosting availability
-and costs with the owner. Free service sleep/restarts can interrupt an in-memory
-connection; this prototype deliberately stops instead of recovering unattended.
-Any expansion needs separate review and authorization.
+Complete MCP replay cursors and verified Photon reconnect/catch-up/token renewal,
+then integrate the durable components into a production host with an intentional
+activation policy. Add CI, choose hosting/persistence, backup keys and retention,
+provision Google credentials and persistent OAuth keys, and implement any required
+Auth0 identity migration. Real Google/ChatGPT and Photon acceptance must include
+interruptions, duplicates, uncertain sends and restore drills before a controlled
+launch. The [ordered roadmap](docs/status.md#remaining-v1-work) separates these
+implementation tasks from operational choices and live checks.
 
 ## References
 

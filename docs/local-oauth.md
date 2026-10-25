@@ -180,7 +180,8 @@ The initial October 25 audit found 14 affected dependency entries. The authorize
 fresh audit reports zero known vulnerabilities. The declared runtime floor is
 Node 22.23.4, with bundled Undici 6.29.1. Messaging SDK versions are preserved.
 
-The [final dependency and review audit](local-oauth-final-audit.md) distinguishes
-the tested OAuth path from SDK dependencies and Node’s bundled HTTP client. It
-records the independent final approval and recommends patched Node 22.23.4 for
-further acceptance work.
+The [historical source/dependency audit](local-oauth-final-audit.md) records the
+independent OAuth review and initial dependency findings; the remediation record
+above supersedes its vulnerable versions and older Node minimum. Both stages are
+merged through [PR #2](https://github.com/alextuan1024/quicksilver/pull/2). See the
+[current roadmap](status.md) for the remaining implementation and launch gates.

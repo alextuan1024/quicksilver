@@ -10,9 +10,9 @@ credentials, deployment, messages, purchase, replay implementation or merge.
 - [x] Update Undici within its compatible 7.x range and override Photon’s five coupled OpenTelemetry 0.218 components to official patched 0.219.0 releases. Document why the override is needed and how to retire it.
 - [x] Raise the declared Node 22 floor to tested 22.23.4 so native fetch also uses patched Undici 6.29.1; no deployed runtime changes.
 - [x] Verify clean install, full tests on supported Node, fresh audit, complete dependency tree, secret scans and independent read-only review; resolve findings.
-- [ ] Update historical audit records with current remediation, commit, verify repository/PR #1 state, publish and verify draft PR and exact-commit CI.
+- [x] Update historical audit records with current remediation, commit, verify repository/PR #1 state, publish and verify draft PR and exact-commit CI.
 
-Initial findings: audit still reports four advisories across 14 production entries.
+Historical initial findings: the audit reported four advisories across 14 production entries.
 Latest Photon telemetry 3.8.3 still pins the 0.218 family; upgrading the messaging
 SDK does not remove that restriction. A scoped override retains Photon telemetry
 3.8.1 and all messaging SDK versions while testing the 0.219 API boundary.
@@ -32,5 +32,9 @@ repeating the prior-stage file changes. No merge is required for this branch.
   the completed-install rerun passed. This was an install/test ordering issue.
 - Application source is unchanged from the previously reviewed OAuth component.
   Changes are dependencies, declared runtime, compatibility tests and records.
-- Publication is the next step after this local commit; exact remote SHA, PR
-  state and CI are verified in the final task report.
+- Published `9f7de7ada3a8c45a738a212dcb58470687471f01` as draft
+  [PR #2](https://github.com/alextuan1024/quicksilver/pull/2) against main after
+  verifying PR #1 was merged. Exact-commit checks/statuses/Actions runs were empty;
+  no repository workflow was configured. The owner subsequently merged PR #2 as
+  `b064f20c5edd01ac229ef00687bdb548294e58fa` on October 25. Both merge states were
+  rechecked for the documentation update; see the [current roadmap](../../status.md).

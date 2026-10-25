@@ -42,6 +42,11 @@ The optional `createService({ ...config, messageHandling })` path implements thi
 
 ## Integration boundaries
 
-The existing Auth0 gate is retained with a separate `quicksilver:messages` scope; the `quicksilver:probe` scope cannot claim or reply to general messages. Its existing one-hour session ceiling remains in force. OAuth grants remain with the external issuer; the SQLite private-record interface also supports future local grants, but the OAuth replacement and compatibility work belong to the authentication design.
+The Auth0 composition remains available with a separate `quicksilver:messages`
+scope; `quicksilver:probe` cannot claim or reply to general messages. The merged
+[local OAuth composition](../local-oauth.md) now supplies an alternative resource
+gate with grants in a separate private SQLite database. Both retain the one-hour
+activation ceiling. `runtime.mjs` still selects the original Auth0 proof path;
+production wiring and any Auth0-to-Google stored-identity migration remain work.
 
 The host must supply a trusted Photon SDK client for the pinned line, configured with automatic retries disabled, and forward native events from the exact owner-scoped subscription. This component neither connects nor broadens subscriptions. It provides no replay, token renewal or inferred send-idempotency guarantees. Persistent pause and safe backup/restore are implemented in the [operations component](../operations.md). Verified replay, retention, key provisioning and live launch decisions remain gates. A restored database stays paused until explicit external reconciliation is recorded; its intake boundary prevents automatic replay of the uncertain interval.
