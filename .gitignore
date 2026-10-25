@@ -11,3 +11,7 @@ operator-config.local.json
 restore-config.local.json
 .quicksilver-backup-*/
 .quicksilver-restore-*/
+
+# Operator-supplied local OAuth credentials and private signing keys.
+oauth-config.local.json
+oauth-keys.local.json

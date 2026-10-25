@@ -59,7 +59,7 @@ version-specific findings; do not assume them for other SDK versions.
 
 ## Validation and local operation
 
-Target runtime: Node 22.13 or newer within Node 22 (built-in SQLite). The successful deployment passed **82 tests and the
+Target runtime: Node 22.23.4 or newer within Node 22 (built-in SQLite and patched native fetch). The successful deployment passed **82 tests and the
 secret-pattern scan**. Tests cover OAuth/discovery, signed callbacks, owner and
 message filtering, lifecycle/expiry, single-attempt behavior, diagnostics, and
 real SDK calls to loopback gRPC fixtures. CI uses fixture keys and injected
@@ -138,12 +138,19 @@ prevents competing workers. Do not copy a running database as a backup or resume
 from an old snapshot automatically. Persistent pause, explicit request recovery,
 encrypted snapshots and paused restoration are implemented; see the
 [operator procedures](docs/operations.md) for the local API and offline CLI.
-Local OAuth, verified Photon replay and live deployment remain separate work.
+Local OAuth is now available through explicit trusted composition; see the
+[local OAuth host contract](docs/local-oauth.md). Verified Photon replay and live
+deployment remain separate work.
+
+The [dependency remediation record](docs/dependency-remediation.md) describes the
+scoped OpenTelemetry override, patched Undici, runtime floor and compatibility checks.
 
 ## Remaining work
 
-Before considering live ongoing conversation: complete the sibling designs for
-authentication, verified replay, retention and hosted operation, then validate the durable message component against the real provider. Reassess hosting availability
+Before considering live ongoing conversation: validate local OAuth with the real
+Google/ChatGPT clients, implement verified replay and production activation,
+and choose retention and hosted operation. Validate the durable message component
+against the real provider. Reassess hosting availability
 and costs with the owner. Free service sleep/restarts can interrupt an in-memory
 connection; this prototype deliberately stops instead of recovering unattended.
 Any expansion needs separate review and authorization.

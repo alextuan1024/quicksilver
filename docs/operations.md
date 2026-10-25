@@ -2,7 +2,7 @@
 
 These controls belong to the optional durable message component. They do not
 activate `runtime.mjs`, connect to Photon, deploy anything, or provide verified
-provider replay. Use Node 22.13+ within Node 22. SQLite may print its experimental
+provider replay. Use Node 22.23.4+ within Node 22. SQLite may print its experimental
 feature warning on this version.
 
 ## Pause and inspect
@@ -170,3 +170,11 @@ new destination without replacement. If an operation reports an error after a
 filesystem interruption, inspect the destination before retrying; an existing
 destination is never overwritten. Restarts and process death do not clear the
 restore barrier or intake boundary.
+
+## Local OAuth and message recovery
+
+The optional [local OAuth component](local-oauth.md) stores grants separately from
+message state. After message restoration, fence the old host, start a fresh OAuth
+database and require reconnection. Never restore an old OAuth snapshot: it could
+revive revoked credentials. OAuth revocation blocks subsequent authenticated
+requests; pause messaging separately to settle work already in flight.
