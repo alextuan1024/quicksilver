@@ -1,5 +1,12 @@
 # Local OAuth Implementation Plan
 
+Status update, October 25: this plan is complete and merged through
+[PR #2](https://github.com/alextuan1024/quicksilver/pull/2). The 14 dependency
+entries and Node 22.13 results below are historical: the subsequent
+[remediation](../../dependency-remediation.md) resolved the four advisories,
+raised the floor to Node >=22.23.4 <23 and passed 143 tests. See the
+[current roadmap](../../status.md) for remaining production work.
+
 > Execute natively with test-first steps and a fresh whole-change review.
 
 **Goal:** Implement the remaining local authentication component from the approved V1 design, with Google identity and durable owner/client-bound authorization.

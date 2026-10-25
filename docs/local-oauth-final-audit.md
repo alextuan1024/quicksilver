@@ -4,7 +4,9 @@
 authorized [remediation](dependency-remediation.md) updates the affected packages,
 raises the runtime floor to Node 22.23.4 and produces a zero-vulnerability audit.
 The original source review and baseline evidence below are retained as history;
-the dependency findings are no longer outstanding in the current branch.
+the dependency findings were resolved in `9f7de7ada3a8c45a738a212dcb58470687471f01`,
+merged through [PR #2](https://github.com/alextuan1024/quicksilver/pull/2).
+PR #1 is also merged; its draft label below records the earlier review checkpoint.
 
 ## Reviewed implementation
 

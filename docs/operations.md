@@ -5,6 +5,17 @@ activate `runtime.mjs`, connect to Photon, deploy anything, or provide verified
 provider replay. Use Node 22.23.4+ within Node 22. SQLite may print its experimental
 feature warning on this version.
 
+## Production readiness
+
+These local controls were merged in PR #1; local OAuth and dependency fixes were
+merged in PR #2. They are not wired into `server.mjs` / `runtime.mjs`. See the
+[current roadmap](status.md) for production integration and acceptance gates.
+Before operating a hosted channel, choose private persistent storage, backup
+destination/retention and key escrow, provision persistent OAuth keys and Google
+credentials, verify the proxy/TLS/rate-limit setup, and rehearse interruption,
+duplicate delivery and fenced restoration. CI is recommended but not configured.
+No live service settings or credentials were checked or changed by this docs update.
+
 ## Pause and inspect
 
 For a running host, use its trusted local `service.pause()` and await the result.
