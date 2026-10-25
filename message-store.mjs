@@ -3,6 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {mkdirSync, openSync, closeSync, chmodSync, constants} from 'node:fs';
 import {dirname} from 'node:path';
 import {createOperations} from './message-operations.mjs';
+import {createMessageReplay} from './message-replay.mjs';
 
 export class MessageError extends Error {
   constructor(code) { super(code); this.code=code; }
@@ -95,13 +96,14 @@ export function openMessageStore({path,identity,now=Date.now}) {
     if(!get("SELECT 1 FROM reply_outbox WHERE request_id=? AND state='unknown_outcome'",id))
       run("UPDATE requests SET reason=CASE WHEN interrupted=1 THEN 'processing_interrupted' ELSE NULL END WHERE id=? AND reason='send_unknown'",id);
   }
-  const operations=createOperations({db,get,all,run,tx,now,fail,request});
+  const replay=createMessageReplay({get,run,tx,fail});
+  const operations=createOperations({db,get,all,run,tx,now,fail,request,replay});
   const mutable=id=>{
     if(operations.isPaused())fail('paused');
     if(id && request(id).restore_hold)fail('restore_review_required');
   };
   return {
-    ...operations,
+    ...operations,replay,
     close(){if(!closed){closed=true;db.close();}},
     accept({provider_id,text,checkpoint=null}) {
       mutable();
@@ -156,11 +158,12 @@ export function openMessageStore({path,identity,now=Date.now}) {
         const event=get("SELECT * FROM event_outbox WHERE state='pending' AND request_id IN (SELECT id FROM requests WHERE restore_hold=0) AND next_attempt<=? ORDER BY seq LIMIT 1",now());
         if(!event)return undefined;
         run("UPDATE event_outbox SET state='in_flight',attempts=attempts+1 WHERE id=?",event.id);
-        return {...event,state:'in_flight',attempts:event.attempts+1};
+        return {...event,state:'in_flight',attempts:event.attempts+1,generation:replay.generation(),cursor:replay.cursor(event.seq-1)};
       });
     },
-    settleEvent(id,accepted) {
+    settleEvent(id,accepted,generation=replay.generation()) {
       tx(()=>{
+        if(generation!==replay.generation())return;
         const event=get("SELECT * FROM event_outbox WHERE id=? AND state='in_flight'",id);
         if(!event)return;
         const state=accepted?'acknowledged':event.attempts>=5?'stalled':'pending';

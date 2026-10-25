@@ -49,4 +49,11 @@ gate with grants in a separate private SQLite database. Both retain the one-hour
 activation ceiling. `runtime.mjs` still selects the original Auth0 proof path;
 production wiring and any Auth0-to-Google stored-identity migration remain work.
 
-The host must supply a trusted Photon SDK client for the pinned line, configured with automatic retries disabled, and forward native events from the exact owner-scoped subscription. This component neither connects nor broadens subscriptions. It provides no replay, token renewal or inferred send-idempotency guarantees. Persistent pause and safe backup/restore are implemented in the [operations component](../operations.md). Verified replay, retention, key provisioning and live launch decisions remain gates. A restored database stays paused until explicit external reconciliation is recorded; its intake boundary prevents automatic replay of the uncertain interval.
+The host must supply a trusted Photon SDK client for the pinned line, configured with automatic retries disabled, and forward native events from the exact owner-scoped subscription. This component neither connects nor broadens subscriptions. It now provides [durable MCP cursor replay](../event-replay.md) for persisted
+events. The separate [catch-up controller](../photon-recovery.md) is optional/deferred;
+[future-only live reconnect and token renewal](../photon-live.md) now have
+fixture-tested SDK/host wiring that awaits real-provider acceptance.
+No send-idempotency guarantee is inferred. Persistent pause and safe backup/restore are implemented in the [operations component](../operations.md). MCP replay acceptance, future-only reconnect/renewal, retention, key provisioning
+and live launch decisions remain gates. Historical Photon catch-up is deferred;
+missed offline messages are tolerable, but admitted requests retain all durable
+claim/reply safeguards. A restored database stays paused until explicit external reconciliation is recorded; its intake boundary prevents automatic replay of the uncertain interval.

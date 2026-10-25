@@ -39,7 +39,8 @@ export function createMessageService(config) {
   const bridge=createBridge({expiresAt:config.expiresAt,now,event:messageEvent,tools:messageTools,
     authorize:(headers,settings)=>gate.authenticate(headers,settings),postCallback:config.postCallback,
     subscriptionStore:{load:()=>store.getPrivate('subscription',messageEvent.name),
-      save:target=>store.putPrivate('subscription',messageEvent.name,target),
+      validateCursor:cursor=>store.replay.validate(cursor),
+      save:(target,cursor)=>store.replay.subscribe(target,cursor),
       clear:()=>store.deletePrivate('subscription',messageEvent.name)},
     onTool:async(name,args)=>{
       if(!active())return {state:'unavailable'};
@@ -62,11 +63,14 @@ export function createMessageService(config) {
       let accepted=false;
       try {
         accepted=await bridge.publish({request_id:event.request_id},working,
-          {eventId:event.id,timestamp:new Date(event.created_at).toISOString()});
+          {eventId:event.id,timestamp:new Date(event.created_at).toISOString(),cursor:event.cursor});
       } catch {/* Only fixed state categories are persisted. */}
-      store.settleEvent(event.id,accepted);
+      store.settleEvent(event.id,accepted,event.generation);
     }
     for(let i=0;i<32 && working();i++){
+      // Trusted transport readiness keeps disconnected work queued. Once reserved,
+      // every failure still follows the conservative unknown-outcome send path.
+      if(options.provider.ready && options.provider.ready()!==true)break;
       const reply=store.reserveReply();if(!reply)break;
       let provider_id=null;
       try {
@@ -115,6 +119,9 @@ export function createMessageService(config) {
       return {accepted:true,...store.accept({...message,checkpoint})};
     },
     flush,reconcile,inspect,
+    recoveryIdentity(){requireOpen();return {messageStoreId:store.replay.epoch(),identity:{...route,
+      issuer:config.issuer,clientId:config.clientId,subject:config.ownerSubject}};},
+    recoveryActive:()=>working(),
     async pause(){
       requireOpen();store.pause();
       await Promise.allSettled([flushing,reconciling]);

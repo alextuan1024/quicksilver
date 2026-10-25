@@ -1,15 +1,22 @@
 # quicksilver V1 Design
 
-Design checkpoint: October 23, 2026; implementation status updated October 25, 2026.
+Design checkpoint: October 23, 2026; implementation status updated October 26, 2026.
 Build an owner-only, general-text iMessage channel into the existing Athena,
 independent of the owner’s Mac, using one small always-on server with durable storage.
 Durable messaging/recovery and local OAuth/dependency remediation are merged in
-PRs #1 and #2. Production host integration, replay/reconnect and live acceptance
-remain unfinished; provider, budget and purchases remain undecided.
+PRs #1 and #2. The local feature branch also implements MCP replay and
+future-only Photon reconnect/renewal with SDK/host wiring. Its latest full suite
+passed 200 tests; independent review passed 41 targeted tests with no findings.
+Production deployment/activation and live acceptance remain unfinished; hosting
+provider, budget and purchases remain undecided.
 
 See [current progress and remaining V1 work](status.md) for merge evidence, the
 Node >=22.23.4 <23 requirement and the distinction between tested local modules
-and a launched service.
+and a launched service. [Future-only Photon SDK/host wiring](photon-live.md) is
+implemented under local fixtures; the default runtime remains parked. The October 25 scope decision defers historical Photon
+catch-up: missed inbound messages during disconnects are tolerable. MCP replay
+and durable processing of already admitted requests remain in V1; see
+[scope and acceptance](design-v1/scope-and-decisions.md).
 
 ## Proven baseline
 
@@ -21,5 +28,5 @@ Read the following documents in order for the complete V1 design. The sections r
 
 - [Architecture and authentication](design-v1/architecture-and-authentication.md) — Deployment topology, durable storage, and OAuth requirements.
 - [Message handling and state](design-v1/message-handling.md) — Inbound requests, request-bound replies, and failure rules.
-- [Recovery and operations](design-v1/recovery-and-operations.md) — Subscriptions, Photon catch-up, monitoring, and backups.
+- [Recovery and operations](design-v1/recovery-and-operations.md) — Subscriptions, future-only reconnect, deferred catch-up, monitoring, and backups.
 - [Scope and launch decisions](design-v1/scope-and-decisions.md) — V1 boundaries, acceptance checks, and remaining implementation, operational decisions and launch acceptance.

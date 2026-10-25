@@ -170,9 +170,13 @@ claims/replies. They do not establish live Google or ChatGPT acceptance.
 Before launch: provision credentials and persistent keys, validate the real
 Google/ChatGPT redirect and public-client behavior, choose retention/backup and
 hosting controls, implement the intentional production activation policy and
-any required identity migration, and complete Photon replay/reconnect work.
-Replay cursors, Photon catch-up and token renewal integration remain
-**unimplemented**. The runtime has not been switched, deployed or activated.
+any required identity migration, and accept the fixture-tested future-only Photon
+live reconnect/token renewal with the real provider. Historical catch-up is deferred and is not a V1 launch gate.
+[MCP replay cursors](event-replay.md) are implemented locally. A generic
+[catch-up controller](photon-recovery.md) is fixture-tested and retained as
+optional deferred work. [Future-only live reconnect and token renewal](photon-live.md)
+now have explicit SDK/host wiring under local fixtures; real-provider and production
+acceptance remain outstanding. The runtime has not been switched, deployed or activated.
 
 The initial October 25 audit found 14 affected dependency entries. The authorized
 [dependency remediation](dependency-remediation.md) now updates npm Undici to
