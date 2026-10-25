@@ -133,8 +133,8 @@ service.receive(nativePhotonEvent, opaqueProviderCheckpoint ?? null);
 This is a composition example; the host supplies the named values and owns
 transport startup, authentication configuration and shutdown. `receive` is a
 trusted in-process method, not an HTTP ingestion endpoint. Never advance a
-provider cursor after a persistence error. Provider checkpoint semantics still
-require verification before adding replay.
+provider cursor after a persistence error. Provider checkpoint semantics would need
+verification if historical catch-up is resumed in a future phase.
 
 The MCP tools are `claim_message`, `reply_message` and `message_status`, protected
 by the pinned OAuth owner/client and `quicksilver:messages` scope. Only a first
@@ -159,8 +159,8 @@ from an old snapshot automatically. Persistent pause, explicit request recovery,
 encrypted snapshots and paused restoration are implemented; see the
 [operator procedures](docs/operations.md) for the local API and offline CLI.
 Local OAuth is now available through explicit trusted composition; see the
-[local OAuth host contract](docs/local-oauth.md). Verified Photon replay and live
-deployment remain separate work.
+[local OAuth host contract](docs/local-oauth.md). Historical Photon catch-up is
+deferred; production live reconnection and deployment remain separate work.
 
 The [dependency remediation record](docs/dependency-remediation.md) describes the
 scoped OpenTelemetry override, patched Undici, runtime floor and compatibility checks.
@@ -169,16 +169,23 @@ scoped OpenTelemetry override, patched Undici, runtime floor and compatibility c
 
 The local next stage adds [durable MCP replay cursors](docs/event-replay.md) with
 safe acknowledgment positions, refresh/restart recovery and restore truncation.
-A [separate recovery controller](docs/photon-recovery.md) supports bounded reconnect,
-session renewal and durable contiguous checkpoints using a verified owner-scoped
-adapter. **A production Photon adapter is still missing**: the pinned catch-up API
-has no chat filter, so broad shared-line history is never fetched and filtered.
+The [separate recovery controller](docs/photon-recovery.md) and its catch-up fixtures
+are retained as optional, deferred work. They depend on verified scoped history
+and cannot yet serve as a future-only reconnect adapter.
+
+**V1 scope decision — October 25:** messages sent during a Photon disconnect may
+be missed. Historical catch-up and history-scope verification are not V1 launch
+blockers. Basic reconnection and token renewal should resume new live messages;
+that production SDK wiring remains unimplemented. Durable handling and MCP replay
+for requests already persisted remain required. Tolerating missed inbound traffic
+never permits retrying uncertain outbound sends or repeating Athena actions.
 These modules do not change the default server/runtime or activate any provider.
 
 ## Remaining work
 
-Establish provider-side owner-scoped replay and implement the actual Photon adapter,
-token mint/rebind and host integration. Validate MCP cursor behavior in ChatGPT,
+Implement future-only owner-scoped Photon live reconnection, token mint/rebind
+and host integration, without historical catch-up. Validate MCP cursor behavior
+in ChatGPT,
 then integrate the durable components into a production host with an intentional
 activation policy. Add CI, choose hosting/persistence, backup keys and retention,
 provision Google credentials and persistent OAuth keys, and implement any required

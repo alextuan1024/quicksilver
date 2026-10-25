@@ -6,6 +6,20 @@
 
 V1 supports general owner text, request-bound progress and delayed results, and continuity with this Athena. Exclude unsolicited iMessages, standalone reminders, groups, media and arbitrary recipients. Existing action-confirmation rules still apply; authenticated message content is not a system instruction.
 
+## Reliability decision — October 25, 2026
+
+The owner accepts that inbound messages sent during a Photon disconnect may be
+missed. Historical Photon catch-up is deferred, and verifying history access or
+retention is no longer a V1 launch blocker. Keep basic reconnection and token
+renewal so new live messages can resume; actual production SDK wiring remains
+unimplemented. Reconnect does not promise recovery of the offline interval.
+
+Requests already admitted to durable storage retain MCP replay, deduplication,
+claim/reply ordering and recovery controls. This decision never permits retrying
+an uncertain outbound send, treating a timeout as failure, or repeating Athena
+actions. The existing catch-up controller/tests are retained for optional future
+work; they are not a completed future-only adapter.
+
 Before launch, test:
 
 - Owner rejection, scope checks and OAuth renewal/revocation.
@@ -16,7 +30,8 @@ Before launch, test:
 
 - Restart during persistence, webhook delivery, claiming and sending.
 
-- Subscription renewal, Photon catch-up and explicitly reported recovery gaps.
+- Subscription renewal and future-only Photon reconnect/token renewal; new live
+  messages resume while missed offline messages are explicitly not promised.
 
 - Unknown-send reconciliation, pause behavior and backup restoration.
 
@@ -29,9 +44,10 @@ suite passed 143 tests on Node 22.23.4; fixtures do not prove live acceptance.
 OAuth library selection is complete (`oidc-provider` / `openid-client`).
 
 Locally implemented next-stage components: [MCP replay cursors](../event-replay.md)
-and a [generic scoped recovery controller](../photon-recovery.md). Still unimplemented:
-a production owner-scoped Photon replay adapter, actual provider token-renewal/
-reconnect host integration; production host wiring and activation policy; and any required
+and an optional [generic catch-up controller](../photon-recovery.md), retained with
+its fixtures for deferred work. Still unimplemented for V1: future-only owner-scoped
+live reconnection and actual provider token-renewal host integration; production
+host wiring and activation policy; and any required
 Auth0-to-Google message-store identity migration. The one-hour activation limit
 remains. OAuth snapshot restoration is not implemented: message recovery requires
 a fresh OAuth database and owner reconnection after fencing the old host.
@@ -44,8 +60,10 @@ a fresh OAuth database and owner reconnection after fencing the old host.
   backup key provisioning, separate escrow and rotation responsibilities.
 - Real Google web-client credentials, exact redirects, verified owner subject,
   persistent signing/cookie keys and ChatGPT public-client compatibility.
-- Owner-scoped Photon replay/cursor retention and send lookup/idempotency semantics
-  for the pinned SDK and actual line; do not infer those guarantees from fixtures.
+- Owner-scoped live subscription, reconnect and credential-renewal behavior for
+  the pinned SDK and actual line. Verify any send lookup/idempotency capability
+  before relying on it; uncertain sends otherwise remain under operator review.
+  Historical replay scope/retention is deferred, not a launch prerequisite.
 - CI for supported Node tests, secret/dependency checks and documentation validation;
   no GitHub Actions workflow is currently configured.
 - Interruption, duplicate/out-of-order, OAuth renewal/revocation and fenced restore

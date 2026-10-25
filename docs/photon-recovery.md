@@ -1,11 +1,48 @@
 # Scoped recovery controller and Photon adapter gap
 
-The local recovery controller is implemented and fixture-tested. **A production
-Photon catch-up/token adapter is not implemented.** The pinned SDK does not expose
-conversation-scoped catch-up. No provider history was read, no token was issued,
-and the existing runtime/server/proof transport remains unchanged.
+## V1 scope decision — October 25, 2026
 
-## Provider evidence — October 25, 2026
+Historical Photon catch-up is deferred. The owner accepts that inbound messages
+sent during disconnects may be missed. Verifying historical access scope or
+retention is no longer a V1 launch blocker. Basic **future-only** live reconnection
+and session/token renewal remain in V1 so new messages resume afterward; actual
+production SDK wiring is still unimplemented.
+
+The existing controller, checkpoint store and catch-up fixtures are retained as
+optional deferred work. Their tests prove the stricter historical-recovery
+contract described below, not a completed future-only adapter. Durable handling
+and MCP replay for requests already persisted remain required. Accepting missed
+inbound messages never permits repeating Athena actions or retrying uncertain
+outbound sends. No provider history was read or token issued; the default runtime
+and original proof transport remain unchanged.
+
+## Future-only reconnect design coupling
+
+The current `photon-recovery.mjs` cannot be used unchanged for this reduced scope:
+
+- Construction requires the `contiguous-owner-text` contract and checkpoint store.
+  Intake accepts only checkpoint + 1 and stalls on missing sequences. A live
+  stream starting after downtime may legitimately have gaps under the new policy.
+- Every `adapter.open` is followed by mandatory `session.catchUp`, including after
+  reconnect or token rotation. Listening requires a history completion marker.
+  No future-only switch exists; the retained composition example below is for the
+  optional catch-up path only.
+- A future implementation must separate the live connection/renewal lifecycle
+  from history traversal, checkpoint completeness and gap deadlines. It should
+  use the exact owner-DM live subscription, persist admitted messages through the
+  existing service, and retain message-ID deduplication, pause/expiry checks,
+  generation fencing, bounded retries and shutdown cancellation.
+- Missing offline messages must be an explicit accepted limitation, never hidden
+  with invented sequence numbers, fabricated empty catch-up completion, or an
+  advanced checkpoint. Keep uncertain outbound replies and existing Athena claims
+  under their current recovery rules. No catch-up checkpoint is needed to promise
+  future-only intake; message restore holds and verified intake boundaries still apply.
+
+This documentation update does not implement that path or alter the existing
+controller/tests. SDK token mint/rebind, live reconnect wiring and acceptance of
+new messages after an interruption remain implementation work for V1.
+
+## Deferred catch-up evidence — October 25, 2026
 
 Inspected installed `@photon-ai/advanced-imessage` 2.2.0 and
 `@spectrum-ts/core` / `@spectrum-ts/imessage` 12.10.1, plus current official docs:
@@ -43,14 +80,14 @@ Inspected installed `@photon-ai/advanced-imessage` 2.2.0 and
   ([error handling](https://photon.codes/docs/advanced-kits/imessage/error-handling)).
   Renewing an RPC token alone does not establish safe shared-line replay.
 
-Closing the production gap requires an official server-side owner/conversation
-replay capability, or a separately verified isolated owner-only transport with
+If historical catch-up is resumed later, closing its production adapter gap
+requires an official server-side owner/conversation replay capability, or a separately verified isolated owner-only transport with
 precise sequence/retention semantics. Then implement and review its adapter,
 including actual token mint/rebinding, cancellation, stream heartbeats, expiry,
 truncation and live/history overlap. A dedicated line alone is not evidence of
 owner-only history. Provisioning and live verification require separate approval.
 
-## Implemented local contract
+## Retained optional catch-up contract
 
 `openPhotonRecoveryStore({path, identity, messageStoreId})` stores a contiguous
 checkpoint and SHA-256 receipt fingerprints in a private SQLite file, using
@@ -137,7 +174,7 @@ poll retires an active session after pause; each event checks synchronously too.
 Neither renewal nor reconnect extends activation or resumes a paused service.
 The controller does not own or close the caller's message/checkpoint stores.
 
-## Trusted composition and restore
+## Optional catch-up composition and restore
 
 For an already-created durable message service, use its live identity and gate:
 
@@ -160,8 +197,9 @@ const recovery = createPhotonRecovery({
 // Shutdown: await recovery.stop(); checkpoint.close(); await service.stop();
 ```
 
-Never restore a checkpoint snapshot or bypass an epoch mismatch. A restored
-message store has a new epoch and remains held behind its existing recovery
+These checkpoint requirements apply to the retained optional catch-up path, not
+a future-only V1 history requirement. Never restore a checkpoint snapshot or bypass
+an epoch mismatch. A restored message store has a new epoch and remains held behind its existing recovery
 boundary. A fresh checkpoint starts at zero; if retained history includes old
 uncertain events, ingestion rejects them and recovery stalls. Establishing a
 reviewed new scoped ledger/boundary after restoration is still adapter/operator

@@ -66,6 +66,17 @@ followed by shutdown/disabled configuration. It does not establish ongoing gener
 conversation, durable recovery or the local Google OAuth flow. This update did
 not inspect the current hosted service, real credentials or provider accounts.
 
+## Reliability scope decision — October 25, 2026
+
+Historical Photon catch-up is deferred. The owner accepts missed inbound messages
+during disconnects; owner-scoped history verification is no longer a V1 launch
+blocker. Basic future-only live reconnection and token renewal remain required
+and unimplemented in production. Existing catch-up code/fixtures are retained as
+optional future work. MCP replay and durable handling of admitted requests remain
+in scope; this does not authorize uncertain outbound retries or repeated Athena
+actions. The [controller coupling](photon-recovery.md#future-only-reconnect-design-coupling)
+must be addressed before that controller can support the reduced requirement.
+
 ## Remaining V1 work
 
 The recommended order is implementation and local reliability first, followed
@@ -75,15 +86,14 @@ by operational setup and explicitly approved live acceptance:
    for retained message events, including conservative acknowledgment positions,
    refresh races and restore truncation. Complete live ChatGPT acceptance and
    choose retention before launch; see [the contract](event-replay.md).
-2. **Finish the production Photon adapter and integration.** The local
-   [recovery controller](photon-recovery.md) implements bounded reconnect/session
-   renewal, overlap deduplication and contiguous durable checkpoints for a verified
-   owner-text adapter. The pinned SDK's raw catch-up has no conversation filter;
-   no production adapter is supplied and no broad history is fetched. Establish
-   server-side owner isolation and sequence coverage, then implement actual SDK
-   token mint/rebind and lifecycle wiring. Mocked controller behavior does not
-   complete production Photon reconnect/catch-up/token renewal. Preserve exact
-   owner/DM filtering and conservative unknown-send handling.
+2. **Implement future-only Photon live reconnect and token renewal.** Wire the
+   pinned SDK's owner-scoped live subscription, fresh token acquisition/rebinding,
+   bounded retry and shutdown/pause/expiry behavior. New live messages should
+   resume after reconnect; the offline interval may be lost. Do not call historical
+   catch-up or require history-scope proof for V1. The existing generic
+   [catch-up controller](photon-recovery.md) is optional/deferred and still requires
+   a history adapter; it cannot yet fulfill this reduced requirement unchanged.
+   Preserve durable message-ID deduplication and conservative unknown-send handling.
 3. **Build production composition and activation policy.** Wire the durable
    message/OAuth modules and managed Photon lifecycle into a host with explicit
    startup, shutdown, pause and monitoring behavior. Decide and implement the
@@ -110,10 +120,12 @@ by operational setup and explicitly approved live acceptance:
    after identity/state migration and rollback are ready. Fixtures do not prove
    provider acceptance; credential setup has not been done in this phase.
 7. **Run integrated reliability and recovery drills.** Extend local fixtures for
-   replay/reconnect and then perform bounded authorized provider/ChatGPT tests:
+   MCP replay and future-only reconnect, then perform bounded authorized
+   provider/ChatGPT tests:
    interruption during persistence/callback/claim/send, duplicate/out-of-order
    delivery, expiry/renewal, unknown-send reconciliation, pause/resume and fenced
-   backup restoration. Verify continuity with the existing Athena and the Mac off.
+   backup restoration. Confirm new messages resume after reconnect without promising
+   offline recovery. Verify continuity with the existing Athena and the Mac off.
    Use real provider evidence for recovery boundaries and send outcomes; do not
    infer failure from a timeout or a missing lookup.
 8. **Controlled launch.** After the above gates pass, obtain explicit approval for

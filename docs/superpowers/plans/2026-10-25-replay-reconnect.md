@@ -62,7 +62,7 @@ preserve that requested execution; no additional approval/publication is implied
 - Work is committed locally only. No push, PR, merge, deployment, provider reads,
   real credentials/grants, purchases, hosting or CI changes.
 
-## Precise remaining gap
+## Remaining gap at the implementation checkpoint (superseded V1 scope)
 
 [MCP replay](../../event-replay.md) and the generic [recovery controller](../../photon-recovery.md)
 are implemented locally. **The production Photon adapter and actual SDK token
@@ -73,3 +73,26 @@ No broad history was read or filtered. A verified server-side owner-scoped repla
 contract or isolated owner-only transport, then adapter implementation/review and
 bounded live acceptance, is required. Production wiring/activation, real identity
 setup/migration, retention/backup choices, and Google/ChatGPT acceptance remain gates.
+
+
+## Subsequent scope decision — October 25, 2026
+
+The owner accepts that Photon messages sent during disconnects may be missed.
+Historical catch-up and verification of history scope/retention are therefore
+**deferred, not V1 launch blockers**. The controller/checkpoint code and fixtures
+remain intact as optional future work; the original plan and verification above
+remain dated implementation evidence.
+
+V1 still needs basic future-only owner-DM live reconnect and token renewal, with
+actual SDK wiring. The current controller mandates catch-up and contiguous
+checkpoints on every session, so it cannot fulfill this reduced requirement
+unchanged. [Required separation](../../photon-recovery.md#future-only-reconnect-design-coupling)
+is documented but not implemented in this turn. Durable admitted requests, MCP
+replay, claim deduplication and conservative unknown-send handling remain required;
+missed inbound traffic does not authorize repeated actions or uncertain sends.
+
+This follow-up changes documentation only on the existing local feature branch.
+Documentation links/anchors, consistency, scope and whitespace are checked before
+commit. The 173-test implementation result above is retained as history; application
+tests are not rerun for this scope-only update. No new adapter, code/config edits,
+push/PR, live calls, credentials or deployment.

@@ -6,7 +6,12 @@
 
 Persist subscriptions across restarts; renew expiry and rotate signing secrets. Retry transient webhook failures with bounded backoff, the same event ID and fresh signatures. Support replay cursors without skipping pending events. [MCP Events](https://developers.openai.com/plugins/build/mcp-events)
 
-Reconnect Photon and recover missed events only after verifying owner-scoped replay for the actual shared line and pinned SDK. Current Photon documentation describes sequence-based catch-up, but compatibility, retention and filtering remain acceptance gates. Never broaden to unrelated chats for recovery. [Photon events](https://photon.codes/docs/advanced-kits/imessage/events)
+V1 now requires future-only Photon live reconnection and token renewal. The
+October 25 owner decision accepts missed inbound messages during disconnects;
+historical catch-up and history-scope verification are deferred, not launch gates.
+Requests already persisted retain durable recovery and MCP replay. Never broaden
+access to unrelated chats, repeat Athena actions or retry uncertain sends to
+compensate for missed inbound messages. [Photon events](https://photon.codes/docs/advanced-kits/imessage/events)
 
 Provide health status, a pause switch, encrypted backups and restore testing. Log operational status and sanitized error categories only, never inbound payloads, reply text, tokens or raw provider errors. SQLite and backups contain private content and require restricted access and a retention policy.
 
@@ -24,8 +29,9 @@ operator-verified reconciliation boundary rejects older native events, including
 absent from the snapshot, rather than guessing which external actions happened.
 New response IDs on restored requests remain uncertain until individually reconciled. The pause and boundary survive process death. The existing runtime is unchanged.
 
-Owner-scoped Photon replay, token renewal, hosting, real backup key provisioning,
+Future-only live reconnect/token renewal, hosting, real backup key provisioning,
 retention duration/destination and live acceptance testing remain separate gates.
+Historical Photon catch-up is optional deferred work.
 No replay cursor semantics or provider idempotency guarantee is inferred here.
 
 
@@ -34,10 +40,12 @@ The bounded local recovery/backup and MCP replay components are implemented.
 acknowledgment positions, atomic subscription refresh and restored-history
 truncation. This does not recover events absent from the message database.
 
-A separate [recovery controller](../photon-recovery.md) implements bounded reconnect,
-session renewal and contiguous checkpoint processing against a verified owner-scoped
-adapter contract. **The production Photon adapter is not implemented.** The pinned
-SDK's catch-up method is unscoped, so it must not read shared-line history and
-filter afterward. Provider-side scoping and sequence guarantees, actual token
-mint/rebind and host wiring remain implementation/integration gates, distinct from
-the local fixture-tested controller. No default runtime or live setting changes.
+The separate [catch-up controller](../photon-recovery.md) and its fixtures remain
+available as optional deferred work. It currently requires scoped history and
+contiguous checkpoints; it is not a future-only reconnect implementation. V1 needs
+a separate live lifecycle path or an explicit mode that removes mandatory history
+and sequence-gap recovery while retaining owner filtering, message-ID deduplication,
+bounded renewal/retry, pause and shutdown controls. That production SDK wiring is
+still unimplemented. No default runtime or live setting changes accompany this
+scope decision. Historical API evidence remains documented for any future catch-up
+work, without making its unresolved scope a V1 blocker.

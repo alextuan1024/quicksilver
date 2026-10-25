@@ -34,7 +34,9 @@ owner decision; it is not a substitute for obtaining that decision.
 
 When `receive` returns `reason: 'paused'`, do not advance a replay checkpoint or
 assume delivery. Keep the host's intake paused as appropriate. Messages during a
-pause may need owner resubmission: Photon replay is not implemented or verified.
+pause/disconnect may be missed and need owner resubmission. Historical Photon
+catch-up is deferred under the V1 scope decision; this never permits automatic
+retries of uncertain sends or re-execution of already claimed work.
 
 ## Offline CLI
 
@@ -191,14 +193,20 @@ revive revoked credentials. OAuth revocation blocks subsequent authenticated
 requests; pause messaging separately to settle work already in flight.
 
 
-## Replay and transport checkpoints
+## Replay, reconnect and optional transport checkpoints
 
-[MCP replay](event-replay.md) is separate from [Photon recovery](photon-recovery.md).
-Message restoration rotates the replay generation and requires fresh subscription
-verification. The optional Photon checkpoint store binds to
-`service.recoveryIdentity()`; never attach a stale checkpoint to a restored message
-database, copy either live database, or reset its sequence to an advertised head.
-After fencing the old host, a new generation requires a new checkpoint store and
-verified owner-scoped history/baseline before intake can resume. Restore holds and
-the intake boundary remain authoritative; the controller stalls on rejected intake.
-No production Photon replay adapter is supplied in this stage.
+[MCP replay](event-replay.md) remains required for persisted requests. V1 accepts
+missed inbound messages while Photon is disconnected; historical catch-up and
+history-scope verification are not launch blockers. Future-only live reconnect and
+token renewal still need SDK wiring and testing. Record outages truthfully without
+claiming the offline interval was recovered. Existing claim, unknown-send, pause,
+restore-hold and verified intake-boundary controls remain unchanged.
+
+The [retained catch-up controller](photon-recovery.md) is optional deferred work.
+If used in a future authorized phase, its checkpoint store must bind to
+`service.recoveryIdentity()`. Never attach a stale checkpoint to a restored message
+database, copy a live database or reset its sequence to an advertised head.
+A restored generation needs a new checkpoint store and a verified scoped
+history/baseline for that optional path. These additional catch-up requirements
+are not prerequisites for a future-only V1 host. The current controller has no
+future-only mode; see its documented design coupling before adapting it.

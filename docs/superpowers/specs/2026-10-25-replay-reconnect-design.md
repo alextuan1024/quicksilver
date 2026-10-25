@@ -1,5 +1,13 @@
 # Durable replay and reconnect design
 
+Scope revision after implementation, October 25: the owner accepts missed inbound
+messages during disconnects. Historical Photon catch-up is optional/deferred,
+not a V1 launch blocker. This document preserves the implemented catch-up design;
+its mandatory history/contiguous-sequence requirements do not describe the new
+future-only reconnect requirement. See the [current coupling and scope](../../photon-recovery.md).
+MCP replay and all durable claim/unknown-send safeguards remain in V1.
+
+
 Authorized scope: continue the merged V1 roadmap on a separate local branch;
 fixtures only, no runtime activation, publication or deployment. Base main is
 `da058749aebc1bbb6d18c3759106d45488448d81` (PRs #1–#3 merged).

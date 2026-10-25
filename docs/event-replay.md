@@ -46,8 +46,10 @@ Message restoration rotates the cursor generation within the quarantine
 transaction. Old cursors cannot skip work based on pre-restore state. Restore
 holds, the verified intake boundary and owner reconciliation still apply; replay
 does not remove them. Newly restored subscriptions require fresh verification.
-The separate Photon checkpoint must also be bound to the new message generation;
-see [Photon recovery](photon-recovery.md).
+If the optional deferred Photon catch-up path is later used, its separate
+checkpoint must bind to the new message generation; see [Photon recovery](photon-recovery.md).
+V1 future-only live reconnection does not require historical catch-up. Missed
+offline messages are tolerated; this does not relax recovery for persisted requests.
 
 Storage retention/deletion policy, live ChatGPT cursor acceptance and full
 production host integration remain gates. The existing finite subscription
