@@ -11,8 +11,8 @@ V1 supports general owner text, request-bound progress and delayed results, and 
 The owner accepts that inbound messages sent during a Photon disconnect may be
 missed. Historical Photon catch-up is deferred, and verifying history access or
 retention is no longer a V1 launch blocker. Keep basic reconnection and token
-renewal so new live messages can resume; actual production SDK wiring remains
-unimplemented. Reconnect does not promise recovery of the offline interval.
+renewal so new live messages can resume. [The SDK/host wiring](../photon-live.md)
+is implemented under fixtures; real-provider acceptance remains outstanding. Reconnect does not promise recovery of the offline interval.
 
 Requests already admitted to durable storage retain MCP replay, deduplication,
 claim/reply ordering and recovery controls. This decision never permits retrying
@@ -45,9 +45,10 @@ OAuth library selection is complete (`oidc-provider` / `openid-client`).
 
 Locally implemented next-stage components: [MCP replay cursors](../event-replay.md)
 and an optional [generic catch-up controller](../photon-recovery.md), retained with
-its fixtures for deferred work. Still unimplemented for V1: future-only owner-scoped
-live reconnection and actual provider token-renewal host integration; production
-host wiring and activation policy; and any required
+its fixtures for deferred work. [Future-only live SDK/host composition](../photon-live.md)
+is now implemented and locally tested. Still unfinished for V1: production
+listener/deployment integration and activation policy; real-provider acceptance;
+and any required
 Auth0-to-Google message-store identity migration. The one-hour activation limit
 remains. OAuth snapshot restoration is not implemented: message recovery requires
 a fresh OAuth database and owner reconnection after fencing the old host.

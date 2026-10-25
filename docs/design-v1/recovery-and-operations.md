@@ -42,10 +42,9 @@ truncation. This does not recover events absent from the message database.
 
 The separate [catch-up controller](../photon-recovery.md) and its fixtures remain
 available as optional deferred work. It currently requires scoped history and
-contiguous checkpoints; it is not a future-only reconnect implementation. V1 needs
-a separate live lifecycle path or an explicit mode that removes mandatory history
-and sequence-gap recovery while retaining owner filtering, message-ID deduplication,
-bounded renewal/retry, pause and shutdown controls. That production SDK wiring is
-still unimplemented. No default runtime or live setting changes accompany this
+contiguous checkpoints; it is not a future-only reconnect implementation. The [separate live path](../photon-live.md) now removes mandatory history and
+sequence-gap recovery while retaining owner filtering, message-ID deduplication,
+bounded renewal/retry, pause and shutdown controls. Its real SDK/host wiring is
+fixture-tested; actual provider acceptance and production activation remain gates. No default runtime or live setting changes accompany this
 scope decision. Historical API evidence remains documented for any future catch-up
 work, without making its unresolved scope a V1 blocker.

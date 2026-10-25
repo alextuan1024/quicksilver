@@ -9,7 +9,8 @@ remain unfinished; provider, budget and purchases remain undecided.
 
 See [current progress and remaining V1 work](status.md) for merge evidence, the
 Node >=22.23.4 <23 requirement and the distinction between tested local modules
-and a launched service. The October 25 scope decision defers historical Photon
+and a launched service. [Future-only Photon SDK/host wiring](photon-live.md) is
+implemented under local fixtures; the default runtime remains parked. The October 25 scope decision defers historical Photon
 catch-up: missed inbound messages during disconnects are tolerable. MCP replay
 and durable processing of already admitted requests remain in V1; see
 [scope and acceptance](design-v1/scope-and-decisions.md).

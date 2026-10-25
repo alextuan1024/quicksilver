@@ -70,12 +70,13 @@ not inspect the current hosted service, real credentials or provider accounts.
 
 Historical Photon catch-up is deferred. The owner accepts missed inbound messages
 during disconnects; owner-scoped history verification is no longer a V1 launch
-blocker. Basic future-only live reconnection and token renewal remain required
-and unimplemented in production. Existing catch-up code/fixtures are retained as
+blocker. Basic future-only live reconnection and token renewal now have
+[SDK and host wiring](photon-live.md) tested locally; production activation and
+real-provider acceptance remain outstanding. Existing catch-up code/fixtures are retained as
 optional future work. MCP replay and durable handling of admitted requests remain
 in scope; this does not authorize uncertain outbound retries or repeated Athena
 actions. The [controller coupling](photon-recovery.md#future-only-reconnect-design-coupling)
-must be addressed before that controller can support the reduced requirement.
+explains why the new live implementation uses a separate controller.
 
 ## Remaining V1 work
 
@@ -86,17 +87,18 @@ by operational setup and explicitly approved live acceptance:
    for retained message events, including conservative acknowledgment positions,
    refresh races and restore truncation. Complete live ChatGPT acceptance and
    choose retention before launch; see [the contract](event-replay.md).
-2. **Implement future-only Photon live reconnect and token renewal.** Wire the
-   pinned SDK's owner-scoped live subscription, fresh token acquisition/rebinding,
-   bounded retry and shutdown/pause/expiry behavior. New live messages should
-   resume after reconnect; the offline interval may be lost. Do not call historical
-   catch-up or require history-scope proof for V1. The existing generic
-   [catch-up controller](photon-recovery.md) is optional/deferred and still requires
-   a history adapter; it cannot yet fulfill this reduced requirement unchanged.
-   Preserve durable message-ID deduplication and conservative unknown-send handling.
-3. **Build production composition and activation policy.** Wire the durable
-   message/OAuth modules and managed Photon lifecycle into a host with explicit
-   startup, shutdown, pause and monitoring behavior. Decide and implement the
+2. **Accept the future-only Photon integration with the real provider.** The new
+   [live controller, SDK adapter and host factory](photon-live.md) implement exact-DM
+   subscription, fresh token acquisition/rebinding, bounded reconnect and safe
+   shutdown/pause/expiry under fixtures. No history calls or sequence completeness
+   are required. New messages can resume after reconnect; the offline interval may
+   be lost. Verify this behavior with the real pinned SDK/account before launch.
+   The historical catch-up controller remains separate and deferred. Admitted
+   requests retain durable deduplication and conservative unknown-send handling.
+3. **Integrate the host into a production deployment and activation policy.** The
+   explicit local host factory now composes OAuth, messages and the Photon lifecycle.
+   Supply the production HTTP/TLS listener, private storage, trusted configuration
+   and monitoring; the default server still selects the parked proof. Decide and implement the
    ongoing activation policy; do not automatically extend the current one-hour
    limit. An Auth0-bound message database cannot be reopened under a Google `sub`:
    design and implement an operator-reviewed identity migration if such state

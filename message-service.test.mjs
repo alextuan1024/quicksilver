@@ -31,14 +31,14 @@ const native=(guid='incoming-1',text='What is on my calendar?')=>({type:'message
   message:{guid,isFromMe:false,chatGuids:[dm],sender:{address:owner,service:'iMessage'},itemType:'normal',
     dateCreated:new Date(started-1000),content:{text,attachments:[]}}});
 const reply=(request_id,response_id='answer',final=true)=>({request_id,response_id,text:'Your appointment is tomorrow.',final});
-async function fixture(t,{post,send,lookup}={}) {
+async function fixture(t,{post,send,lookup,ready}={}) {
   const dir=mkdtempSync(join(tmpdir(),'quicksilver-messages-'));
   let time=started;
   const services=[],events=[],sends=[];
   const open=()=>{
     const service=createService({...config,now:()=>time,
       messageHandling:{databasePath:join(dir,'messages.sqlite'),workerIntervalMs:0,sendTimeoutMs:30,
-        provider:{messages:{sendText:async(...args)=>{sends.push(args);return send?send(...args):{guid:'outgoing-1'};}}},lookup},
+        provider:{ready,messages:{sendText:async(...args)=>{sends.push(args);return send?send(...args):{guid:'outgoing-1'};}}},lookup},
       postCallback:async(url,raw,h,options)=>{
         assert.equal(options.isActive(),true);
         assert.equal(h['webhook-signature'],'v1,'+createHmac('sha256',signingBytes).update(`${h['webhook-id']}.${h['webhook-timestamp']}.${raw}`).digest('base64'));
@@ -264,4 +264,14 @@ test('recovery identity persists across restart and changes on restored message 
  const target=join(dir,'recovery.sqlite');restoreMessageBackup({path,databasePath:target,key,identity:original.identity,now:()=>started+1000});
  const restored=createService({...config,now:()=>started+1000,messageHandling:{databasePath:target,workerIntervalMs:0,provider:{messages:{sendText:async()=>{throw Error('unexpected send');}}}}});
  t.after(()=>restored.stop());assert.notEqual(restored.recoveryIdentity().messageStoreId,original.messageStoreId);
+});
+
+
+test('disconnected provider leaves replies queued without reserving an uncertain send',async t=>{
+ let connected=false;const {service,sends}=await fixture(t,{ready:()=>connected});
+ const {request_id}=service.receive(native());await call(service,'claim_message',{request_id});
+ await call(service,'reply_message',reply(request_id));await service.flush();
+ assert.equal(sends.length,0);assert.equal(service.inspect().requests[0].replies[0].state,'queued');
+ assert.equal(service.inspect().requests[0].replies[0].attempts,0);
+ connected=true;await service.flush();assert.equal(sends.length,1);
 });

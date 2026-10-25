@@ -6,7 +6,8 @@ Historical Photon catch-up is deferred. The owner accepts that inbound messages
 sent during disconnects may be missed. Verifying historical access scope or
 retention is no longer a V1 launch blocker. Basic **future-only** live reconnection
 and session/token renewal remain in V1 so new messages resume afterward; actual
-production SDK wiring is still unimplemented.
+[SDK/host wiring](photon-live.md) is now implemented in a separate live path and
+fixture-tested; real-provider acceptance and deployment remain outstanding.
 
 The existing controller, checkpoint store and catch-up fixtures are retained as
 optional deferred work. Their tests prove the stricter historical-recovery
@@ -38,9 +39,10 @@ The current `photon-recovery.mjs` cannot be used unchanged for this reduced scop
   under their current recovery rules. No catch-up checkpoint is needed to promise
   future-only intake; message restore holds and verified intake boundaries still apply.
 
-This documentation update does not implement that path or alter the existing
-controller/tests. SDK token mint/rebind, live reconnect wiring and acceptance of
-new messages after an interruption remain implementation work for V1.
+This catch-up controller remains unchanged. The subsequent [live implementation](photon-live.md)
+uses a separate controller with no history/contiguous-checkpoint requirement, plus
+SDK token mint/rebind and host composition. Fixtures cover new messages after an
+interruption; real-provider acceptance remains outstanding.
 
 ## Deferred catch-up evidence — October 25, 2026
 
@@ -216,5 +218,5 @@ late-result fencing. A child process is killed after committing a message,
 claim and send reservation but before checkpoint commit: restart replays without
 repeating the claim or resending the unknown reply. No live credentials,
 provider reads or messages are used. These results validate the controller's
-contract; they do not complete the missing production Photon adapter or prove
+contract; they do not complete the missing production Photon catch-up adapter or prove
 Google, Photon or ChatGPT live acceptance.

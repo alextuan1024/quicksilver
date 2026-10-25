@@ -198,7 +198,8 @@ requests; pause messaging separately to settle work already in flight.
 [MCP replay](event-replay.md) remains required for persisted requests. V1 accepts
 missed inbound messages while Photon is disconnected; historical catch-up and
 history-scope verification are not launch blockers. Future-only live reconnect and
-token renewal still need SDK wiring and testing. Record outages truthfully without
+token renewal now have [fixture-tested SDK/host wiring](photon-live.md), awaiting
+real-provider acceptance. Record outages truthfully without
 claiming the offline interval was recovered. Existing claim, unknown-send, pause,
 restore-hold and verified intake-boundary controls remain unchanged.
 
@@ -210,3 +211,18 @@ A restored generation needs a new checkpoint store and a verified scoped
 history/baseline for that optional path. These additional catch-up requirements
 are not prerequisites for a future-only V1 host. The current controller has no
 future-only mode; see its documented design coupling before adapting it.
+
+
+## Future-only live host lifecycle
+
+The [live host factory](photon-live.md) requires explicit trusted construction and
+`start()`; creating it does not connect. Close its HTTP listener, then await host
+`close()` to fence/stop Photon before closing message/OAuth storage. A paused,
+expired, stopped or permanently failed controller does not silently restart;
+review the status and create a new host only under the approved activation policy.
+
+Queued replies remain queued while the sender reports disconnected. A disconnect
+or token retirement after reservation can make an in-flight reply uncertain; it
+is not retried on the new session. Existing inspection/reconciliation procedures
+apply. Native GUID deduplication and claims remain durable across reconnects and
+process restarts. No history read or catch-up checkpoint is part of this live path.

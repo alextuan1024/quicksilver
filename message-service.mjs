@@ -68,6 +68,9 @@ export function createMessageService(config) {
       store.settleEvent(event.id,accepted,event.generation);
     }
     for(let i=0;i<32 && working();i++){
+      // Trusted transport readiness keeps disconnected work queued. Once reserved,
+      // every failure still follows the conservative unknown-outcome send path.
+      if(options.provider.ready && options.provider.ready()!==true)break;
       const reply=store.reserveReply();if(!reply)break;
       let provider_id=null;
       try {

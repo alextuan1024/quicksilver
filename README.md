@@ -175,17 +175,18 @@ and cannot yet serve as a future-only reconnect adapter.
 
 **V1 scope decision — October 25:** messages sent during a Photon disconnect may
 be missed. Historical catch-up and history-scope verification are not V1 launch
-blockers. Basic reconnection and token renewal should resume new live messages;
-that production SDK wiring remains unimplemented. Durable handling and MCP replay
+blockers. [Future-only live reconnection and token renewal](docs/photon-live.md)
+now have explicit SDK/host wiring tested with local fixtures; real-provider
+acceptance and deployment remain outstanding. Durable handling and MCP replay
 for requests already persisted remain required. Tolerating missed inbound traffic
 never permits retrying uncertain outbound sends or repeating Athena actions.
 These modules do not change the default server/runtime or activate any provider.
 
 ## Remaining work
 
-Implement future-only owner-scoped Photon live reconnection, token mint/rebind
-and host integration, without historical catch-up. Validate MCP cursor behavior
-in ChatGPT,
+Validate the fixture-tested future-only Photon SDK/host wiring with the real
+provider under a bounded approved test, without historical catch-up. Validate
+MCP cursor behavior in ChatGPT,
 then integrate the durable components into a production host with an intentional
 activation policy. Add CI, choose hosting/persistence, backup keys and retention,
 provision Google credentials and persistent OAuth keys, and implement any required

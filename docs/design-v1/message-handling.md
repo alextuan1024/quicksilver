@@ -51,7 +51,8 @@ production wiring and any Auth0-to-Google stored-identity migration remain work.
 
 The host must supply a trusted Photon SDK client for the pinned line, configured with automatic retries disabled, and forward native events from the exact owner-scoped subscription. This component neither connects nor broadens subscriptions. It now provides [durable MCP cursor replay](../event-replay.md) for persisted
 events. The separate [catch-up controller](../photon-recovery.md) is optional/deferred;
-future-only live reconnect and token renewal still need production SDK wiring.
+[future-only live reconnect and token renewal](../photon-live.md) now have
+fixture-tested SDK/host wiring that awaits real-provider acceptance.
 No send-idempotency guarantee is inferred. Persistent pause and safe backup/restore are implemented in the [operations component](../operations.md). MCP replay acceptance, future-only reconnect/renewal, retention, key provisioning
 and live launch decisions remain gates. Historical Photon catch-up is deferred;
 missed offline messages are tolerable, but admitted requests retain all durable
