@@ -171,7 +171,9 @@ Before launch: provision credentials and persistent keys, validate the real
 Google/ChatGPT redirect and public-client behavior, choose retention/backup and
 hosting controls, implement the intentional production activation policy and
 any required identity migration, and complete Photon replay/reconnect work.
-Replay cursors, Photon catch-up and token renewal integration remain
+[MCP replay cursors](event-replay.md) are implemented locally. A generic
+[recovery controller](photon-recovery.md) is fixture-tested, but the production
+owner-scoped Photon adapter and actual token renewal integration remain
 **unimplemented**. The runtime has not been switched, deployed or activated.
 
 The initial October 25 audit found 14 affected dependency entries. The authorized

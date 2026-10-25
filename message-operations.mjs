@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 
 // Operator mutations are local, filesystem-authorized calls, not Athena tools.
-export function createOperations({db,get,all,run,tx,now,fail,request}) {
+export function createOperations({db,get,all,run,tx,now,fail,request,replay}) {
   const control=()=>JSON.parse(get("SELECT value FROM metadata WHERE key='operations'").value);
   const save=value=>run("UPDATE metadata SET value=? WHERE key='operations'",JSON.stringify(value));
   const verified=options=>{if(options?.ownerVerified!==true)fail('owner_verification_required');};
@@ -29,7 +29,8 @@ export function createOperations({db,get,all,run,tx,now,fail,request}) {
           if(current.closed || get('SELECT 1 FROM reply_outbox WHERE request_id=?',id))fail('request_cannot_restart');
           run("UPDATE requests SET execution='pending',interrupted=0,reason=NULL,restore_hold=0 WHERE id=?",id);
           // A new event is only created after explicit verification that work did not start.
-          run("UPDATE event_outbox SET id=?,state='pending',attempts=0,next_attempt=0,created_at=? WHERE request_id=?",randomUUID(),now(),id);
+          run("DELETE FROM event_outbox WHERE request_id=?",id);
+          run("INSERT INTO event_outbox(id,request_id,created_at) VALUES(?,?,?)",randomUUID(),id,now());
         } else if(outcome==='abandoned') {
           run("UPDATE requests SET execution='abandoned',closed=1,interrupted=0,reason=NULL,restore_hold=0 WHERE id=?",id);
           run("UPDATE event_outbox SET state='cancelled' WHERE request_id=? AND state!='acknowledged'",id);
@@ -59,6 +60,7 @@ export function createOperations({db,get,all,run,tx,now,fail,request}) {
         run("UPDATE reply_attempts SET state='unknown_outcome' WHERE state='send_attempted'");
         // A restored secret/grant could have been rotated or revoked after capture.
         run('DELETE FROM private_records');
+        replay.reset();
         audit(null,'restore_quarantined');
       });
     },

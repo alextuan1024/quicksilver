@@ -29,9 +29,15 @@ retention duration/destination and live acceptance testing remain separate gates
 No replay cursor semantics or provider idempotency guarantee is inferred here.
 
 
-The bounded local recovery/backup plan is complete; this whole design is not yet
-launch-complete. MCP replay cursors remain unimplemented (the bridge rejects
-non-null cursors); durable outbox retries do not supply cursor-based replay.
-Photon reconnect/catch-up and token-renewal host integration also require future
-implementation after their provider assumptions are verified. These are distinct
-from external decisions and authorized live acceptance tests.
+The bounded local recovery/backup and MCP replay components are implemented.
+[MCP replay](../event-replay.md) now uses authenticated durable cursors, conservative
+acknowledgment positions, atomic subscription refresh and restored-history
+truncation. This does not recover events absent from the message database.
+
+A separate [recovery controller](../photon-recovery.md) implements bounded reconnect,
+session renewal and contiguous checkpoint processing against a verified owner-scoped
+adapter contract. **The production Photon adapter is not implemented.** The pinned
+SDK's catch-up method is unscoped, so it must not read shared-line history and
+filter afterward. Provider-side scoping and sequence guarantees, actual token
+mint/rebind and host wiring remain implementation/integration gates, distinct from
+the local fixture-tested controller. No default runtime or live setting changes.

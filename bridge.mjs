@@ -108,7 +108,7 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
       if (!active() || !subscription || busy || !guard()) return false;
       const target = subscription, id = delivery.eventId ?? randomUUID();
       const unchanged = () => active() && subscription === target && guard();
-      const result = await deliver(target, {eventId:id,name:EVENT,timestamp:delivery.timestamp ?? new Date(now()).toISOString(),data,cursor:null},id,unchanged);
+      const result = await deliver(target, {eventId:id,name:EVENT,timestamp:delivery.timestamp ?? new Date(now()).toISOString(),data,cursor:delivery.cursor??null},id,unchanged);
       return unchanged() && result.status >= 200 && result.status < 300;
     },
     async handle(method, path, headers, body) {
@@ -153,7 +153,11 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
       }
       const secret = params.delivery.secret;
       if (typeof secret !== 'string' || !/^whsec_[A-Za-z0-9+/]+={0,2}$/.test(secret) || Buffer.from(secret.slice(6), 'base64').length < 24 || Buffer.from(secret.slice(6), 'base64').length > 64) return failure(id, -32602, 'Invalid signing secret');
-      if (params.cursor != null || (params.ttlMs != null && (!Number.isSafeInteger(params.ttlMs) || params.ttlMs <= 0))) return failure(id, -32602, 'Invalid cursor or lifetime');
+      if (params.ttlMs != null && (!Number.isSafeInteger(params.ttlMs) || params.ttlMs <= 0)) return failure(id, -32602, 'Invalid cursor or lifetime');
+      try {
+        if(subscriptionStore?.validateCursor)subscriptionStore.validateCursor(params.cursor);
+        else if(params.cursor!=null)throw new Error('unsupported cursor');
+      } catch {return failure(id,-32602,'Invalid cursor or lifetime');}
       if (busy || (subscription && subscription.url !== url)) return failure(id, -32000, 'Single subscription only');
       const target = { id: createHash('sha256').update(`single-owner:${url}:${EVENT}:quicksilver`).digest('hex'), url, secret,
         expires: Math.min(configuredExpiry, now() + (params.ttlMs ?? 30 * 60_000)) };
@@ -162,9 +166,9 @@ export function createBridge({ key, authorize, expiresAt, now = Date.now, postCa
         const challenge = randomUUID();
         const result = await deliver(target, { type: 'verification', challenge }, randomUUID());
         if (!(result.status >= 200 && result.status < 300 && equal(result.body?.challenge, challenge)) || !active() || now() >= target.expires) throw new Error('challenge failed');
-        subscriptionStore?.save(target);
+        const replay=subscriptionStore?.save(target,params.cursor);
         subscription = target;
-        return success({ id: target.id, refreshBefore: new Date(target.expires).toISOString(), cursor: null, truncated: false });
+        return success({ id: target.id, refreshBefore: new Date(target.expires).toISOString(), cursor: replay?.cursor??null, truncated: replay?.truncated??false });
       } catch { return failure(id, -32015, 'Callback verification failed', { reason: 'challenge_failed' }); }
       finally { busy = false; }
     }

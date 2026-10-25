@@ -28,8 +28,10 @@ local OAuth with persistent grants, and the known dependency fixes. The merged
 suite passed 143 tests on Node 22.23.4; fixtures do not prove live acceptance.
 OAuth library selection is complete (`oidc-provider` / `openid-client`).
 
-Still unimplemented: MCP replay cursors; Photon reconnect/catch-up/token-renewal
-host integration; production host wiring and activation policy; and any required
+Locally implemented next-stage components: [MCP replay cursors](../event-replay.md)
+and a [generic scoped recovery controller](../photon-recovery.md). Still unimplemented:
+a production owner-scoped Photon replay adapter, actual provider token-renewal/
+reconnect host integration; production host wiring and activation policy; and any required
 Auth0-to-Google message-store identity migration. The one-hour activation limit
 remains. OAuth snapshot restoration is not implemented: message recovery requires
 a fresh OAuth database and owner reconnection after fencing the old host.

@@ -7,6 +7,8 @@ The original source review and baseline evidence below are retained as history;
 the dependency findings were resolved in `9f7de7ada3a8c45a738a212dcb58470687471f01`,
 merged through [PR #2](https://github.com/alextuan1024/quicksilver/pull/2).
 PR #1 is also merged; its draft label below records the earlier review checkpoint.
+Later local replay work is recorded in the [current roadmap](status.md); remaining-work
+statements below describe this audit checkpoint.
 
 ## Reviewed implementation
 

@@ -165,9 +165,20 @@ deployment remain separate work.
 The [dependency remediation record](docs/dependency-remediation.md) describes the
 scoped OpenTelemetry override, patched Undici, runtime floor and compatibility checks.
 
+## Replay and reconnect components
+
+The local next stage adds [durable MCP replay cursors](docs/event-replay.md) with
+safe acknowledgment positions, refresh/restart recovery and restore truncation.
+A [separate recovery controller](docs/photon-recovery.md) supports bounded reconnect,
+session renewal and durable contiguous checkpoints using a verified owner-scoped
+adapter. **A production Photon adapter is still missing**: the pinned catch-up API
+has no chat filter, so broad shared-line history is never fetched and filtered.
+These modules do not change the default server/runtime or activate any provider.
+
 ## Remaining work
 
-Complete MCP replay cursors and verified Photon reconnect/catch-up/token renewal,
+Establish provider-side owner-scoped replay and implement the actual Photon adapter,
+token mint/rebind and host integration. Validate MCP cursor behavior in ChatGPT,
 then integrate the durable components into a production host with an intentional
 activation policy. Add CI, choose hosting/persistence, backup keys and retention,
 provision Google credentials and persistent OAuth keys, and implement any required

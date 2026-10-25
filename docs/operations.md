@@ -189,3 +189,16 @@ message state. After message restoration, fence the old host, start a fresh OAut
 database and require reconnection. Never restore an old OAuth snapshot: it could
 revive revoked credentials. OAuth revocation blocks subsequent authenticated
 requests; pause messaging separately to settle work already in flight.
+
+
+## Replay and transport checkpoints
+
+[MCP replay](event-replay.md) is separate from [Photon recovery](photon-recovery.md).
+Message restoration rotates the replay generation and requires fresh subscription
+verification. The optional Photon checkpoint store binds to
+`service.recoveryIdentity()`; never attach a stale checkpoint to a restored message
+database, copy either live database, or reset its sequence to an advertised head.
+After fencing the old host, a new generation requires a new checkpoint store and
+verified owner-scoped history/baseline before intake can resume. Restore holds and
+the intake boundary remain authoritative; the controller stalls on rejected intake.
+No production Photon replay adapter is supplied in this stage.

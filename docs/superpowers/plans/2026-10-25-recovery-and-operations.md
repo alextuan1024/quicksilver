@@ -1,5 +1,11 @@
 # Recovery and Operations Implementation Plan
 
+Historical stage record. The later [replay/reconnect stage](2026-10-25-replay-reconnect.md)
+implements local MCP cursors and a generic recovery controller; its production
+Photon adapter remains missing. The unimplemented-cursor statements below describe
+this earlier checkpoint, not the current local feature branch.
+
+
 > Use the existing native, test-first workflow; obtain an independent final review.
 
 **Goal:** Add persistent pause/inspection, explicit stalled-work resolution and encrypted backups with fail-closed restoration to the existing message component.

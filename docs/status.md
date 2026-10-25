@@ -42,6 +42,16 @@ are the implementation-stage results, not a test rerun or live acceptance claim
 for this documentation-only change. Earlier 82/117/140-test and Node 22.13 records
 are dated history, superseded for the current runtime and suite size.
 
+## Local replay stage after PR #3
+
+The next feature branch starts from merged docs PR #3 at
+`da058749aebc1bbb6d18c3759106d45488448d81`. Its MCP replay component and generic
+recovery controller are local additions, not a deployed or published provider
+integration. [MCP replay](event-replay.md) and [Photon recovery](photon-recovery.md)
+document their contracts and remaining gaps. The 143-test result above remains
+the earlier merged implementation's evidence; see the [new-stage plan](superpowers/plans/2026-10-25-replay-reconnect.md) for final
+verification rather than treating that count as current.
+
 ## Production integration is unfinished
 
 `server.mjs` still constructs `runtime.mjs`, whose Auth0 configuration selects the
@@ -61,15 +71,19 @@ not inspect the current hosted service, real credentials or provider accounts.
 The recommended order is implementation and local reliability first, followed
 by operational setup and explicitly approved live acceptance:
 
-1. **Implement MCP event replay cursors.** The bridge currently rejects non-null
-   cursors; persisted subscriptions and outbox retries do not implement replay.
-   Define cursor ordering, retention, truncation and recovery-gap behavior without
-   skipping pending work or repeating claimed actions.
-2. **Implement Photon reconnect, catch-up and token renewal in the host.** First
-   establish owner-scoped sequence/replay, retention and lookup semantics for the
-   pinned SDK and actual shared line. Preserve exact owner/DM filtering, stable
-   identifiers and conservative unknown-send handling. Persisted opaque provider
-   checkpoints alone are not a verified replay watermark or idempotency guarantee.
+1. **Accept the local MCP replay implementation.** Durable cursor replay now exists
+   for retained message events, including conservative acknowledgment positions,
+   refresh races and restore truncation. Complete live ChatGPT acceptance and
+   choose retention before launch; see [the contract](event-replay.md).
+2. **Finish the production Photon adapter and integration.** The local
+   [recovery controller](photon-recovery.md) implements bounded reconnect/session
+   renewal, overlap deduplication and contiguous durable checkpoints for a verified
+   owner-text adapter. The pinned SDK's raw catch-up has no conversation filter;
+   no production adapter is supplied and no broad history is fetched. Establish
+   server-side owner isolation and sequence coverage, then implement actual SDK
+   token mint/rebind and lifecycle wiring. Mocked controller behavior does not
+   complete production Photon reconnect/catch-up/token renewal. Preserve exact
+   owner/DM filtering and conservative unknown-send handling.
 3. **Build production composition and activation policy.** Wire the durable
    message/OAuth modules and managed Photon lifecycle into a host with explicit
    startup, shutdown, pause and monitoring behavior. Decide and implement the

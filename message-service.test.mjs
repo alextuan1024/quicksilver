@@ -220,3 +220,48 @@ test('restore boundary rejects absent post-snapshot work and waits for fresh sub
   assert.equal(again.receive(native('after-snapshot')).reason,'restore_gap');
   assert.equal(again.inspect().operations.ingest_after,started+2000);
 });
+
+const resubscribe=(service,cursor)=>rpc(service,'events/subscribe',{name:'photon.message.received',arguments:{session:'quicksilver'},cursor,
+ delivery:{mode:'webhook',url:'https://callback.example.com/messages',secret:'whsec_'+signingBytes.toString('base64')}});
+
+test('authenticated refresh replays after a saved cursor with stable ids and no second claim or send',async t=>{
+ const {service,events,sends,open}=await fixture(t);
+ const subscription=await resubscribe(service,null);const cursor=subscription.body.result.cursor;
+ assert.equal(typeof cursor,'string');const {request_id}=service.receive(native());await service.flush();
+ assert.equal(events[0].body.cursor,cursor);
+ await call(service,'claim_message',{request_id});await call(service,'reply_message',reply(request_id));await service.flush();
+ await service.stop();const restarted=open();
+ const resumed=await resubscribe(restarted,cursor);assert.equal(resumed.body.result.truncated,false);await restarted.flush();
+ assert.equal(events.length,2);assert.equal(events[1].body.eventId,events[0].body.eventId);
+ assert.equal((await call(restarted,'claim_message',{request_id})).structuredContent.acquired,false);
+ await restarted.flush();assert.equal(sends.length,1);
+});
+
+test('refresh during callback delivery fences the old acknowledgment without losing replay',async t=>{
+ let release,startedDelivery;const entered=new Promise(resolve=>startedDelivery=resolve);let first=true;
+ const {service,events}=await fixture(t,{post:()=>{
+  if(first){first=false;startedDelivery();return new Promise(resolve=>release=resolve);}
+  return {status:200,body:{}};
+ }});
+ const cursor=(await resubscribe(service,null)).body.result.cursor;assert.equal(typeof cursor,'string');
+ service.receive(native());const flushing=service.flush();await entered;
+ assert.ok((await resubscribe(service,cursor)).body.result);release({status:200,body:{}});await flushing;
+ await service.flush();assert.equal(events.length,2);assert.equal(events[0].body.eventId,events[1].body.eventId);
+});
+
+test('invalid cursors are rejected before challenge and do not change active subscription',async t=>{
+ const {service,events}=await fixture(t);
+ assert.equal((await resubscribe(service,'invalid')).body.error.code,-32602);
+ const result=await resubscribe(service,null);assert.equal(typeof result.body.result.cursor,'string');
+ service.receive(native());await service.flush();assert.equal(events.length,1);
+});
+
+test('recovery identity persists across restart and changes on restored message generation',async t=>{
+ const {service,open,dir}=await fixture(t);assert.equal(typeof service.recoveryIdentity,'function');
+ const original=service.recoveryIdentity();assert.equal(original.identity.dm,dm);
+ await service.pause();const path=join(dir,'recovery.qsb'),key=Buffer.alloc(32,27);service.backup({path,key});
+ await service.stop();const restarted=open();assert.deepEqual(restarted.recoveryIdentity(),original);await restarted.stop();
+ const target=join(dir,'recovery.sqlite');restoreMessageBackup({path,databasePath:target,key,identity:original.identity,now:()=>started+1000});
+ const restored=createService({...config,now:()=>started+1000,messageHandling:{databasePath:target,workerIntervalMs:0,provider:{messages:{sendText:async()=>{throw Error('unexpected send');}}}}});
+ t.after(()=>restored.stop());assert.notEqual(restored.recoveryIdentity().messageStoreId,original.messageStoreId);
+});
