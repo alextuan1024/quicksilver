@@ -15,3 +15,6 @@ restore-config.local.json
 # Operator-supplied local OAuth credentials and private signing keys.
 oauth-config.local.json
 oauth-keys.local.json
+production-config.local.json
+*.key
+*.pem

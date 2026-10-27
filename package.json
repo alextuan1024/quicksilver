@@ -8,8 +8,10 @@
   },
   "scripts": {
     "start": "node server.mjs",
+    "start:production": "node production-server.mjs",
     "test": "node --test",
-    "scan": "node scan.mjs"
+    "scan": "node scan.mjs",
+    "check:docs": "node scripts/check-docs.mjs"
   },
   "dependencies": {
     "@photon-ai/advanced-imessage": "2.2.0",

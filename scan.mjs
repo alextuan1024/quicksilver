@@ -1,5 +1,7 @@
-import { readFileSync, readdirSync } from 'node:fs';
-const files = readdirSync('.').filter(name => /\.(mjs|json|md|yaml)$/.test(name));
+import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+const files = [...new Set(execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {encoding:'utf8'})
+  .split('\0').filter(name => /\.(mjs|json|md|ya?ml)$/.test(name)))];
 const patterns = [/gh[pousr]_[A-Za-z0-9]{20,}/, /github_pat_[A-Za-z0-9_]{20,}/,
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, /sk-(?:proj-)?[A-Za-z0-9_-]{30,}/,
   /(?:QUICKSILVER_API_KEY|SPECTRUM_PROJECT_SECRET)\s*[:=]\s*["'][^"']{20,}["']/];

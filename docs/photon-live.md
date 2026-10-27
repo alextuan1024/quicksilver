@@ -163,3 +163,11 @@ Node 22 selection). Independent final review passed **41/41** targeted tests and
 reported no actionable findings. Full/production audits found zero known
 vulnerabilities; dependency-tree, secret and documentation checks passed. These
 are fixture/loopback results, not live-provider or ChatGPT acceptance.
+
+
+## Production listener
+
+The [production entry point](production-host.md) now supplies private configuration,
+HTTPS or loopback proxy listening and signal-driven host shutdown. Deployment
+selection, real secrets and live acceptance remain separate gates. Activation
+requires an explicit flag and fixed deadline; the one-hour limit remains.

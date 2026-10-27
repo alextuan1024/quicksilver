@@ -1,0 +1,84 @@
+# Deployment readiness checklist
+
+This checklist describes the production entry point in this branch. It is not an
+activation, provisioning or deployment instruction. The repository supplies the
+code and fixtures; actual host/account values below have not been provisioned or
+verified in this stage. See [the production host contract](production-host.md)
+for the exact JSON shape and command.
+
+## Required decisions and values
+
+| Configuration or decision | Required value/constraint | Current evidence or remaining input |
+| --- | --- | --- |
+| Hosting and budget | One always-on process; private persistent storage; an agreed monthly ceiling | Provider, plan, budget and volume not selected here. Render Free's ephemeral storage cannot hold durable state. |
+| Runtime | Node >=22.23.4 <23 | Tested locally on 22.23.4; provision the supported version on the host. |
+| Listener mode | `proxy` on `127.0.0.1`/`::1`, or direct `tls` on an explicit IP | Choose topology and a fixed port. Proxy mode requires a same-machine/network-namespace trusted TLS proxy. |
+| Public identity | Canonical root HTTPS `localOAuth.issuer`, and its exact `/mcp` resource | Actual hostname, DNS and issuer/resource values still need verification. |
+| TLS/proxy | TLS cert/key paths for direct TLS; otherwise exact Host and sanitized forwarding headers | Certificate provisioning, edge rate limits and firewall/proxy isolation remain host setup. |
+| Storage | Distinct absolute `localOAuth.databasePath` and `messageHandling.databasePath`; pre-existing private owned parent directories | Actual volume/mount/paths and single-process ownership must be chosen and verified. |
+| Config/secrets | Private owned regular config file, mode 0600; private regular TLS files when used | Host secret delivery and access control are not provisioned. No automatic key generation or env fallback exists. |
+| MCP client | Exact `clientId` and 1–4 registered HTTPS `redirectUris` | Obtain/verify the real ChatGPT client ID and callbacks; public client uses PKCE S256 and no client secret. |
+| Google identity | Verified Google `ownerSubject` (`sub`), web-client ID/secret | Real owner binding and credentials not verified/provisioned here. Google callback is `<issuer>interaction/google/callback`. |
+| OAuth persistence | Private RSA RS256 JWKS with unique key IDs and >=2048-bit keys; persistent cookie keys >=32 bytes | Keys, rotation overlap and escrow must be provisioned. Never regenerate automatically on restart. |
+| Photon route | Project ID `77c7d003-2bf1-4638-b866-2e2ce16ab091`, verified owner E.164 address, line and exact `any;-;<ownerAddress>` DM | Project is pinned in code; actual owner/line/route and project secret need account verification. Example phone numbers are fixtures. |
+| Activation | Explicit `--activate`; approved fixed ISO `expiresAt`, future and <=1 hour away | Choose an exact approved window later. Restart can reconnect only within the same deadline; no automatic extension. |
+| Worker timing | Defaults: 1000 ms worker interval, 5000 ms send timeout | Retain defaults unless an operational reason is established. Disconnected replies stay queued; uncertain sends do not retry. |
+| Retention | Content/events, deduplication, OAuth tombstones and backups | Policies and any resulting maintenance implementation remain undecided. Do not purge deduplication/claim evidence casually. |
+| Backups/recovery | Destination, encryption key escrow/rotation, owner/operator and recovery objective | Provision separately; message backups exclude OAuth. Restore requires fencing, fresh OAuth storage and owner reconnection. |
+| Monitoring | HTTP liveness plus transport state, expiry/stall detection, storage/backup health | `/healthz` alone does not prove Photon connection/delivery. Alert destination and integration remain to be chosen. |
+| Existing Auth0 state | Determine whether old identity-bound message state must survive cutover | If yes, migration design/implementation and rollback are still required. Do not reopen it under a Google subject. |
+
+## Safe defaults and boundaries
+
+- `npm start` retains the parked proof. Production selection is explicit via
+  `npm run start:production -- --config <absolute-private-file> --activate`.
+- The production command rejects missing activation, expired/overlong deadlines,
+  unsafe proxy binding, missing keys and invalid host/identity configuration.
+- Persistent pause survives startup; ordinary startup does not clear it. Operator
+  recovery remains separate from MCP tools. Expiry, a permanent stall or pause
+  is not permission for a supervisor to rearm/extend activation.
+- Historical Photon catch-up stays deferred. Inbound messages during an outage
+  may be missed; admitted work remains durable and deduplicated. A timeout never
+  proves an outbound send failed.
+- SIGTERM/SIGINT fence the host, drain HTTP and close storage. Allow at least
+  60 seconds for graceful process termination; restart uses the original deadline.
+- CI uses local fixtures, read-only repository permissions and no real provider
+  credentials. Passing CI does not prove live compatibility or deploy the service.
+
+## Acceptance sequence
+
+1. **Repository/local acceptance:** inspect the exact published head and both CI
+   jobs. Review production configuration constraints and operator recovery docs.
+   Use fixture-only startup, shutdown, restart, OAuth and recovery tests.
+2. **Provisioning decision:** choose the outstanding topology/budget/retention and
+   recovery responsibilities; provision host, storage, TLS and secrets in a
+   separately authorized stage. Verify correct config ownership and one process.
+3. **Identity/client acceptance:** with explicit live authorization, confirm Google
+   owner `sub`, exact redirect/resource/scope, ChatGPT discovery, PKCE login,
+   refresh rotation/reuse rejection and revocation. Resolve any required Auth0
+   state migration and rollback before switching the deployment.
+4. **Bounded provider acceptance:** approve exact recipient/route and fixed window,
+   then verify actual Photon filtering, new messages after reconnect, renewal,
+   duplicates, expiry, pause and uncertain-send behavior. Record recipient evidence;
+   provider acceptance alone does not prove delivery.
+5. **Integrated recovery drill:** exercise interruption around intake, callback,
+   claim and send; verify no repeated Athena action or uncertain-send retry.
+   Fence the old host before message restoration, retain holds, create fresh OAuth
+   storage and reconnect the owner. Confirm Athena continuity with the Mac off.
+6. **Controlled rollout:** approve activation with monitoring, pause/rollback
+   criteria and a recorded end time. Ongoing operation beyond one hour requires
+   a separate policy decision and implementation; this branch does not enable it.
+
+## Next local work that does not require provisioning
+
+The next concrete verification task is a fixture-only acceptance harness around
+this production listener: drive the real local OAuth flow and MCP replay through
+HTTP while injecting Photon events, then interrupt/restart around claimed work
+and reserved sends, and exercise fenced backup/restore. Existing suites cover
+these components individually; this would collect the combined deployment-facing
+sequence and evidence in one repeatable drill, without any live account access.
+
+A read-only config preflight command is another useful bounded follow-up, but it
+must never open/migrate stores, contact providers or enable timers merely to
+validate configuration. No retention deletion or identity migration should be
+implemented until their required policy/keep-state decisions are settled.
