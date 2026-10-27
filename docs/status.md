@@ -95,7 +95,9 @@ checks passed; full and production audits reported zero known vulnerabilities.
 Independent integration/security/CI review found **no actionable findings** and
 passed **10/10 production tests**, plus secret, docs and whitespace checks.
 Workflow configuration does not by itself establish passing remote CI. This stage
-is local: no push, PR, deployment, credentials or live activation.
+is being published as a draft PR; no deployment, credentials or live activation
+are included. The [deployment readiness checklist](deploy-readiness.md) records
+required configuration, outstanding decisions and the next local verification work.
 
 Hosting, real secrets, monitoring/edge controls and ongoing activation beyond one
 hour remain unfinished. The last recorded live success is the

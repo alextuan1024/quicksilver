@@ -138,6 +138,10 @@ remote run; inspect the checks for the published commit.
   zero known vulnerabilities.
 - Based on merged PR #4 (`2b80a0b`). No dependency versions, existing transport
   controller, uncertainty handling or default proof runtime changed.
-- This stage is committed locally only. Remote workflow execution, deployment,
+- Publication is a draft PR milestone. Check its exact head for remote workflow
+  results. Deployment,
   credentials, live-provider/ChatGPT acceptance and any activation beyond one
   hour are not established by these results.
+
+See the [deployment readiness checklist](deploy-readiness.md) for required values,
+unresolved choices, acceptance order and the next fixture-only verification task.
