@@ -1,5 +1,29 @@
 # Progress and remaining V1 work — October 27, 2026
 
+## Render milestone checkpoint — October 27, 2026
+
+PR #5 is merged into `main` at `00b812c341189ec6272d5aa1f21e2bc4185396f3`.
+PR #6 is also merged, but into the old `feat/production-entrypoint-ci` base at
+`aa4093f3ad40196b3bb1661de6354a1549a576cd`, after PR #5 reached main. Consequently
+main does not yet contain PR #6's acceptance drills or latest-Node CI correction.
+The Render preparation branch carries those reviewed commits onto verified main
+so its next PR includes them explicitly. PR #6's final remote CI run
+`40537635189` passed both supported Node jobs at `b242a88`.
+
+[Render preparation](render-preparation.md) adds a disabled-only paid-service
+template and conditional trusted-proxy listener, with fixture coverage for
+secure OAuth/MCP, spoofed peers/headers, pause/restart and shutdown. The template
+validates against Render's fetched official JSON Schema. Independent code/security
+review passed 18 focused tests with no actionable findings. The clean-install
+full suite passed **218/218** on Node 22.23.4; source scan (93 files), docs checks
+(27 files/114 local links), dependency tree, whitespace and both dependency
+audits passed, with zero known vulnerabilities. Actual exclusive
+Render proxy addresses and forwarding-header guarantees are not established:
+live activation remains blocked. Provisioning, secrets, ongoing activation,
+retention, monitoring and live-provider acceptance remain external gates.
+
+Earlier counts and publication wording below are dated milestone history.
+
 ## Verified repository baseline
 
 PRs #1–#4 are merged into the private `alextuan1024/quicksilver` repository.
@@ -105,6 +129,23 @@ hour remain unfinished. The last recorded live success is the
 configuration. It does not establish ongoing conversation, durable recovery or
 local Google OAuth acceptance. This work does not inspect or change the hosted
 service, real credentials or provider accounts.
+
+## Integrated fixture acceptance stage
+
+A separate test/reliability branch stacks on draft
+[PR #5](https://github.com/alextuan1024/quicksilver/pull/5), whose
+[CI run #1](https://github.com/alextuan1024/quicksilver/actions/runs/40535805619)
+passed both supported Node jobs at `fc306e437eb87ca3dafc58494f65a918eccc0763`.
+It adds [three production acceptance drills](production-acceptance.md): real
+OAuth/MCP HTTP with reconnect/replay, SIGKILL during callback/claim/send, and
+persistent pause plus fenced encrypted restoration with fresh OAuth. Providers
+and recipients remain synthetic. No production source, dependency versions or
+one-hour activation policy change is included. The full suite passed **213/213**
+on Node 22.23.4; independent test-validity review passed **3/3** integrated cases
+with no actionable findings. Scans, docs, dependency tree/audits and whitespace
+checks passed. Initial remote CI exposed stale Node 22.23.3 cache selection; the stacked branch
+now requests latest resolution and checks the supported runtime before installation.
+The stacked PR must report its own final remote CI result.
 
 ## Reliability scope decision — October 25, 2026
 

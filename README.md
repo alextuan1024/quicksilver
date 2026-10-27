@@ -34,6 +34,9 @@ missed. Durable admitted requests, MCP replay and uncertain-send safeguards rema
 required. The default server still selects the parked Auth0 proof; production hosting uses
 the explicit `start:production` command. No deployment or activation occurred. See [progress and remaining V1 tasks](docs/status.md).
 
+The next test/reliability branch adds a [combined production acceptance drill](docs/production-acceptance.md)
+through real HTTP and child-process restarts, with synthetic providers only.
+
 ## Verified result — October 15, 2026
 
 One complete fixed-text round trip succeeded: the owner's iMessage reached the
@@ -218,3 +221,9 @@ implementation tasks from operational choices and live checks.
 - [Photon cloud iMessage](https://photon.codes/docs/spectrum-ts/providers/imessage)
 - [Render Free services](https://render.com/docs/free)
 - [Render environment changes](https://render.com/docs/configure-environment-variables)
+
+## Render preparation
+
+The [disabled Render template and live trust gates](docs/render-preparation.md)
+are prepared for review. Applying the template would create paid resources and
+an initial disabled deployment; no service has been provisioned by this stage.

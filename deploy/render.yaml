@@ -1,0 +1,29 @@
+# REVIEW ONLY. Applying creates paid resources and initially deploys a disabled
+# health listener. autoDeployTrigger off does not suppress that initial deploy.
+# Region is a proposed choice; confirm before applying. No secrets in this file.
+previews:
+  generation: "off"
+services:
+  - type: web
+    name: quicksilver
+    runtime: node
+    repo: https://github.com/alextuan1024/quicksilver
+    branch: main
+    region: singapore
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: "off"
+    buildCommand: npm ci --omit=dev
+    startCommand: node render-bootstrap.mjs --disabled
+    healthCheckPath: /livez
+    envVars:
+      - key: NODE_VERSION
+        value: 22.23.4
+      - key: PORT
+        value: "10000"
+      - key: SKIP_INSTALL_DEPS
+        value: "true"
+    disk:
+      name: quicksilver-data
+      mountPath: /var/data
+      sizeGB: 5

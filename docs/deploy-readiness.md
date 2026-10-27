@@ -10,9 +10,9 @@ for the exact JSON shape and command.
 
 | Configuration or decision | Required value/constraint | Current evidence or remaining input |
 | --- | --- | --- |
-| Hosting and budget | One always-on process; private persistent storage; an agreed monthly ceiling | Provider, plan, budget and volume not selected here. Render Free's ephemeral storage cannot hold durable state. |
+| Hosting and budget | One always-on process; private persistent storage; an agreed monthly ceiling | Preferred: fresh Render Hobby workspace, Starter compute and 5 GB disk. Creation/spend is not authorized; see [prepared choices](render-preparation.md). |
 | Runtime | Node >=22.23.4 <23 | Tested locally on 22.23.4; provision the supported version on the host. |
-| Listener mode | `proxy` on `127.0.0.1`/`::1`, or direct `tls` on an explicit IP | Choose topology and a fixed port. Proxy mode requires a same-machine/network-namespace trusted TLS proxy. |
+| Listener mode | Loopback `proxy`, direct `tls`, or explicitly trusted `render` ingress | Render preparation uses port 10000; exclusive proxy-peer addresses and header contract remain a live blocker. |
 | Public identity | Canonical root HTTPS `localOAuth.issuer`, and its exact `/mcp` resource | Actual hostname, DNS and issuer/resource values still need verification. |
 | TLS/proxy | TLS cert/key paths for direct TLS; otherwise exact Host and sanitized forwarding headers | Certificate provisioning, edge rate limits and firewall/proxy isolation remain host setup. |
 | Storage | Distinct absolute `localOAuth.databasePath` and `messageHandling.databasePath`; pre-existing private owned parent directories | Actual volume/mount/paths and single-process ownership must be chosen and verified. |
@@ -40,8 +40,12 @@ for the exact JSON shape and command.
 - Historical Photon catch-up stays deferred. Inbound messages during an outage
   may be missed; admitted work remains durable and deduplicated. A timeout never
   proves an outbound send failed.
-- SIGTERM/SIGINT fence the host, drain HTTP and close storage. Allow at least
-  60 seconds for graceful process termination; restart uses the original deadline.
+- SIGTERM/SIGINT fence the host and attempt to drain HTTP and close storage.
+  Where supported, allow at least 60 seconds before forced termination; this is
+  a recommendation, not a guarantee (callback DNS has no application deadline).
+  Restart uses the original deadline.
+  Render disks have a fixed 30-second limit; verify termination/recovery as described
+  in [Render preparation](render-preparation.md#storage-shutdown-and-activation).
 - CI uses local fixtures, read-only repository permissions and no real provider
   credentials. Passing CI does not prove live compatibility or deploy the service.
 
@@ -71,12 +75,11 @@ for the exact JSON shape and command.
 
 ## Next local work that does not require provisioning
 
-The next concrete verification task is a fixture-only acceptance harness around
-this production listener: drive the real local OAuth flow and MCP replay through
-HTTP while injecting Photon events, then interrupt/restart around claimed work
-and reserved sends, and exercise fenced backup/restore. Existing suites cover
-these components individually; this would collect the combined deployment-facing
-sequence and evidence in one repeatable drill, without any live account access.
+The [integrated production acceptance drill](production-acceptance.md) now covers
+real local OAuth/MCP HTTP, signed callbacks, process interruption around claims
+and reserved sends, persistent pause and fenced backup/restore with fresh OAuth.
+It uses synthetic providers only. This closes the previously identified gap
+between individual component tests and the deployed listener composition.
 
 A read-only config preflight command is another useful bounded follow-up, but it
 must never open/migrate stores, contact providers or enable timers merely to

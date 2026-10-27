@@ -29,7 +29,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ matrix.node }}
+          check-latest: true
           cache: npm
+      - name: Require the supported runtime
+        run: node --input-type=module -e "import {requireSupportedNode} from './production-server.mjs'; requireSupportedNode();"
       - run: npm ci
       - run: npm test
       - run: npm run scan

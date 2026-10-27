@@ -74,6 +74,11 @@ Auth0-bound message data still requires a separately designed migration.
   `keyFile` with private absolute paths. TLS 1.2 is the minimum. Provision the
   certificate/chain for the public issuer; reload certificates by restarting the
   process under the same fixed activation deadline. Trust-proxy behavior is off.
+- **`render`:** explicit `0.0.0.0` HTTP listener with an exact trusted proxy IP
+  allowlist, pinned Host and strict forwarded-HTTPS validation. CLI `PORT` must
+  match the configured port. This is conditional preparation: actual exclusive
+  ingress addresses and header behavior remain unverified. See the
+  [Render trust gate and disabled template](render-preparation.md).
 
 Ports are integers from 0–65535 (0 is for local fixtures). Production should use
 a fixed port. Edge rate limits, firewall rules, DNS, certificates, storage, secret
@@ -102,9 +107,13 @@ transport state is still an operational integration task.
 SIGTERM and SIGINT stop accepting connections and begin host shutdown immediately.
 Photon is fenced/stopped before the OAuth and message stores close. In-flight HTTP
 connections have up to ten seconds to drain before they are destroyed. Host
-shutdown also awaits the existing bounded provider/send/callback work; a supervisor
-should allow at least 60 seconds before forced termination. Unknown sends retain
+shutdown awaits bounded provider/send work and pending callbacks. Callback DNS
+resolution precedes the HTTP timeout and has no application deadline, so graceful
+completion has no finite guarantee. Where supported, allow at least 60 seconds
+before forced termination as an operational recommendation. Unknown sends retain
 the existing reconciliation rules. A crash does not authorize retrying them.
+Render disk-backed services have a fixed 30-second limit instead; see the
+[platform-specific constraints](render-preparation.md#storage-shutdown-and-activation).
 
 Startup logs report only the listening port and bounded activation. Failures use
 a fixed message, never config contents, paths, raw provider errors or request URLs.
