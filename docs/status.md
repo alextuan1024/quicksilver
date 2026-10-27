@@ -119,7 +119,9 @@ and recipients remain synthetic. No production source, dependency versions or
 one-hour activation policy change is included. The full suite passed **213/213**
 on Node 22.23.4; independent test-validity review passed **3/3** integrated cases
 with no actionable findings. Scans, docs, dependency tree/audits and whitespace
-checks passed. The stacked PR must report its own remote CI result.
+checks passed. Initial remote CI exposed stale Node 22.23.3 cache selection; the stacked branch
+now requests latest resolution and checks the supported runtime before installation.
+The stacked PR must report its own final remote CI result.
 
 ## Reliability scope decision — October 25, 2026
 
