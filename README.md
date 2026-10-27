@@ -34,6 +34,9 @@ missed. Durable admitted requests, MCP replay and uncertain-send safeguards rema
 required. The default server still selects the parked Auth0 proof; production hosting uses
 the explicit `start:production` command. No deployment or activation occurred. See [progress and remaining V1 tasks](docs/status.md).
 
+The next test/reliability branch adds a [combined production acceptance drill](docs/production-acceptance.md)
+through real HTTP and child-process restarts, with synthetic providers only.
+
 ## Verified result — October 15, 2026
 
 One complete fixed-text round trip succeeded: the owner's iMessage reached the

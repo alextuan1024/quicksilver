@@ -12,7 +12,7 @@ export const redirect='https://chatgpt.example/oauth/callback';
 export const scope='quicksilver:messages';
 export const verifier='a'.repeat(64);
 export const challenge=createHash('sha256').update(verifier).digest('base64url');
-export async function oauthFixture(t,create) {
+export async function oauthFixture(t,create,{addressOf}={}) {
   const dir=mkdtempSync(join(tmpdir(),'qs-local-auth-'));
   const signing=await generateKeyPair('RS256',{extractable:true});
   const googleKey=await generateKeyPair('RS256',{extractable:true});
@@ -39,7 +39,10 @@ export async function oauthFixture(t,create) {
     cookieKeys:[randomBytes(32).toString('base64url')],google,trustProxy:true,
     expiresAt:new Date(Date.now()+600000).toISOString()};
   async function start() {
-    running=await create(config);server=createServer((req,res)=>{void running.handle(req,res);});
+    running=await create(config);
+    // Integration drills may supply an already-listening production process.
+    if(addressOf){address=addressOf(running);return;}
+    server=createServer((req,res)=>{void running.handle(req,res);});
     await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));address=`http://127.0.0.1:${server.address().port}`;
   }
   async function stop(){if(server){await new Promise(resolve=>server.close(resolve));server=null;}if(running)await running.close();}
