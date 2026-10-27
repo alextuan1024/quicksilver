@@ -49,6 +49,8 @@ The OAuth browser helper's optional `addressOf` callback points it at an existin
 production listener. Its default local HTTP behavior remains unchanged for prior
 component tests. The drill child and IPC interfaces are test-support files only;
 no runtime, transport, dependency or activation-policy change is part of this stage.
+The CI follow-up resolves the latest Node release explicitly and checks the runtime
+before installation, preventing a cached older Node 22 from passing version selection.
 
 ## Limits and remaining acceptance
 
@@ -81,4 +83,14 @@ and activation beyond one hour need their underlying policy decisions first.
   106 local links/anchors. Dependency tree, full/production audits and whitespace
   checks passed; audits reported zero known vulnerabilities.
 - These are local results. Inspect the stacked draft PR's exact head for remote CI.
-  PR #5 is preserved; this stage adds tests, test helpers and documentation only.
+  PR #5 is preserved; this stage adds tests, helpers, documentation and the CI
+  runtime-selection correction below.
+
+
+### Remote CI runtime selection finding
+
+The initial `22.x` job selected cached Node 22.23.3 because setup-node defaults to
+`check-latest: false`. All three new drills passed, but the two CLI signal tests
+correctly rejected that unsupported runtime. CI now sets `check-latest: true` and
+calls the existing runtime guard before installation. The floor remains 22.23.4;
+no application requirement was weakened. Inspect the updated head's CI result.
