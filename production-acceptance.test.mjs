@@ -7,7 +7,8 @@ import {restoreMessageBackup} from './message-backup.mjs';
 import {PROJECT_ID} from './photon.mjs';
 
 for(const mode of ['proxy','render'])test(`production ${mode} HTTP drill: OAuth rotation/revocation, owner filtering, future reconnect and durable MCP replay`,async t=>{
-  const d=await productionDrill(t,mode==='render'?{listener:{mode,host:'0.0.0.0',port:0,trustedProxyAddresses:['127.0.0.1']}}:{}),{f}=d;await d.connected();
+  const d=await productionDrill(t,mode==='render'?{listener:{mode,host:'0.0.0.0',port:0},localAddress:'127.0.0.2',
+    requestHeaders:{'x-forwarded-proto':'http','x-forwarded-host':'attacker.example','forwarded':'host=attacker.example;proto=http'}}:{}),{f}=d;await d.connected();
   assert.equal((await f.login({subject:'different-owner'})).response.status,403);
   const tokens=await d.token(),access=tokens.access_token;
   assert.equal((await d.rpc(access,'initialize')).body.result.serverInfo.name,'quicksilver');

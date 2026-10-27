@@ -224,6 +224,6 @@ implementation tasks from operational choices and live checks.
 
 ## Render preparation
 
-The [disabled Render template and live trust gates](docs/render-preparation.md)
+The [disabled Render template and fixed-origin security model](docs/render-preparation.md)
 are prepared for review. Applying the template would create paid resources and
 an initial disabled deployment; no service has been provisioned by this stage.

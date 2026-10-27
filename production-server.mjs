@@ -2,7 +2,7 @@ import {createServer as httpServer} from 'node:http';
 import {createServer as httpsServer} from 'node:https';
 import {pathToFileURL} from 'node:url';
 import {loadProductionConfig,readPrivateFile} from './production-config.mjs';
-import {platformGuard,renderPort,liveness} from './platform-listener.mjs';
+import {renderOriginGuard,renderPort,liveness} from './platform-listener.mjs';
 
 export function requireSupportedNode(version=process.versions.node) {
   const [major,minor,patch]=version.split('.').map(Number);
@@ -35,7 +35,7 @@ export async function startProductionServer(config,{createHost,signal,shutdownGr
   try {
     if(signal?.aborted)throw new Error();
     const listener=config.listener;
-    const guard=listener.mode==='render'?platformGuard(listener,config.localOAuth.issuer):null;
+    const guard=listener.mode==='render'?renderOriginGuard(config.localOAuth.issuer):null;
     // Validate TLS before opening either database.
     const tls=listener.mode==='tls'?{cert:readPrivateFile(listener.certFile),key:readPrivateFile(listener.keyFile),minVersion:'TLSv1.2'}:null;
     const handle=async(req,res)=>{

@@ -81,11 +81,17 @@ Google or Photon. `createLocalOAuth(config)` is also available independently,
 exposing the HTTP `handle`, resource `gate`, local `revokeGrant(id)` and `close`.
 Neither factory binds a listening port.
 
-For TLS termination, set `trustProxy: true` **only** on a listener reachable
-exclusively by the trusted proxy. The proxy must overwrite Host with the exact
+For generic TLS termination, set `trustProxy: true` only when the request scheme
+and host reaching the component are controlled by trusted infrastructure or a
+trusted application adapter. For the loopback proxy mode, the listener must be
+reachable exclusively by trusted local processes. The proxy must overwrite Host with the exact
 configured issuer host, strip client-supplied forwarding headers, omit
 `X-Forwarded-Host`, and set `X-Forwarded-Proto: https`. Headers alone do not prove
-the peer is a trusted proxy. Bound request/header timeouts and edge rate limits
+the peer is a trusted proxy. The explicit [Render adapter](render-preparation.md)
+instead pins the raw Host, strips all caller forwarding metadata, and supplies
+application-owned HTTPS context for the fixed external issuer. It does not use
+source IPs as authentication. Never expose this raw component with blindly trusted
+caller headers. Bound request/header timeouts and edge rate limits
 are host responsibilities. MCP rejects browser Origin headers and limits JSON
 bodies to 16 KiB; the OAuth library limits form bodies to 56 KiB. Authorization
 state transitions are serialized with a bounded queue. Each active OAuth request
