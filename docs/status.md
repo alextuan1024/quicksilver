@@ -106,6 +106,21 @@ configuration. It does not establish ongoing conversation, durable recovery or
 local Google OAuth acceptance. This work does not inspect or change the hosted
 service, real credentials or provider accounts.
 
+## Integrated fixture acceptance stage
+
+A separate test/reliability branch stacks on draft
+[PR #5](https://github.com/alextuan1024/quicksilver/pull/5), whose
+[CI run #1](https://github.com/alextuan1024/quicksilver/actions/runs/40535805619)
+passed both supported Node jobs at `fc306e437eb87ca3dafc58494f65a918eccc0763`.
+It adds [three production acceptance drills](production-acceptance.md): real
+OAuth/MCP HTTP with reconnect/replay, SIGKILL during callback/claim/send, and
+persistent pause plus fenced encrypted restoration with fresh OAuth. Providers
+and recipients remain synthetic. No production source, dependency versions or
+one-hour activation policy change is included. The full suite passed **213/213**
+on Node 22.23.4; independent test-validity review passed **3/3** integrated cases
+with no actionable findings. Scans, docs, dependency tree/audits and whitespace
+checks passed. The stacked PR must report its own remote CI result.
+
 ## Reliability scope decision — October 25, 2026
 
 Historical Photon catch-up is deferred. The owner accepts missed inbound messages

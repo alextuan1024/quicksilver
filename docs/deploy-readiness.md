@@ -71,12 +71,11 @@ for the exact JSON shape and command.
 
 ## Next local work that does not require provisioning
 
-The next concrete verification task is a fixture-only acceptance harness around
-this production listener: drive the real local OAuth flow and MCP replay through
-HTTP while injecting Photon events, then interrupt/restart around claimed work
-and reserved sends, and exercise fenced backup/restore. Existing suites cover
-these components individually; this would collect the combined deployment-facing
-sequence and evidence in one repeatable drill, without any live account access.
+The [integrated production acceptance drill](production-acceptance.md) now covers
+real local OAuth/MCP HTTP, signed callbacks, process interruption around claims
+and reserved sends, persistent pause and fenced backup/restore with fresh OAuth.
+It uses synthetic providers only. This closes the previously identified gap
+between individual component tests and the deployed listener composition.
 
 A read-only config preflight command is another useful bounded follow-up, but it
 must never open/migrate stores, contact providers or enable timers merely to
