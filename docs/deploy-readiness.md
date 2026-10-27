@@ -1,5 +1,10 @@
 # Deployment readiness checklist
 
+For the subsequently provisioned `quicksilver-v1` disabled service and exact
+credential/activation approval boundaries, see the [deployment record](deployment-status.md).
+The checklist below retains the earlier implementation-stage choices; it is not
+a current claim that the hosting service remains unprovisioned.
+
 This checklist describes the production entry point in this branch. It is not an
 activation, provisioning or deployment instruction. The repository supplies the
 code and fixtures; actual host/account values below have not been provisioned or

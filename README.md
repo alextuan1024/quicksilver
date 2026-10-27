@@ -7,6 +7,10 @@ No separate LLM bot, arbitrary-recipient send tool, media or group support.
 
 ## Current progress — October 27, 2026
 
+Latest deployment: `quicksilver-v1` is provisioned with the disabled bootstrap.
+See the [deployment record and credential approval checklist](docs/deployment-status.md).
+PR #8's fixed-origin listener remains pending merge at that checkpoint.
+
 Durable messaging/recovery and local OAuth/dependency fixes are merged through
 [PR #1](https://github.com/alextuan1024/quicksilver/pull/1) and
 [PR #2](https://github.com/alextuan1024/quicksilver/pull/2); the progress-doc update
