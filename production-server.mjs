@@ -2,6 +2,7 @@ import {createServer as httpServer} from 'node:http';
 import {createServer as httpsServer} from 'node:https';
 import {pathToFileURL} from 'node:url';
 import {loadProductionConfig,readPrivateFile} from './production-config.mjs';
+import {platformGuard,renderPort,liveness} from './platform-listener.mjs';
 
 export function requireSupportedNode(version=process.versions.node) {
   const [major,minor,patch]=version.split('.').map(Number);
@@ -34,11 +35,16 @@ export async function startProductionServer(config,{createHost,signal,shutdownGr
   try {
     if(signal?.aborted)throw new Error();
     const listener=config.listener;
+    const guard=listener.mode==='render'?platformGuard(listener,config.localOAuth.issuer):null;
     // Validate TLS before opening either database.
     const tls=listener.mode==='tls'?{cert:readPrivateFile(listener.certFile),key:readPrivateFile(listener.keyFile),minVersion:'TLSv1.2'}:null;
     const handle=async(req,res)=>{
       try {
         if(stopping){res.writeHead(503,{'Connection':'close'}).end();return;}
+        if(guard){
+          if(liveness(req,res))return;
+          if(!guard(req)){res.writeHead(400,{'Content-Type':'application/json','Cache-Control':'no-store'}).end('{"error":"invalid_request_origin"}');return;}
+        }
         await host.handle(req,res);
       }catch{
         if(!res.headersSent)res.writeHead(500,{'Content-Type':'application/json','Cache-Control':'no-store'}).end('{"error":"request_failed"}');
@@ -75,6 +81,7 @@ export async function main(args=process.argv.slice(2)) {
     requireSupportedNode();
     if(args.length!==3||args[0]!=='--config'||args[2]!=='--activate')throw new Error();
     const config=loadProductionConfig(args[1]);
+    if(config.listener.mode==='render'&&config.listener.port!==renderPort())throw new Error();
     process.on('SIGTERM',onSignal);process.on('SIGINT',onSignal);
     running=await startProductionServer(config,{signal:stop.signal});
     console.log(`quicksilver production port=${running.address().port}; bounded activation`);

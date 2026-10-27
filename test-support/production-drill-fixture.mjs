@@ -18,7 +18,7 @@ export async function until(check,label='condition') {
   assert.fail(`Timed out waiting for ${label}`);
 }
 
-export async function productionDrill(t) {
+export async function productionDrill(t,{listener={mode:'proxy',host:'127.0.0.1',port:0}}={}) {
   const secret='whsec_'+randomBytes(32).toString('base64');
   const callbacks=[],sends=[],subscriptions=[],unexpected=[];let holdCallbacks=false,callbackError,messagePath;
   const receiver=createServer(async(req,res)=>{
@@ -43,7 +43,7 @@ export async function productionDrill(t) {
   const f=await oauthFixture(t,async local=>{
     messagePath??=join(dirname(local.databasePath),'messages.sqlite');
     const {expiresAt,trustProxy,google,...auth}=local;
-    const config={listener:{mode:'proxy',host:'127.0.0.1',port:0},expiresAt,
+    const config={listener,expiresAt,
       localOAuth:{...auth,google:{clientId:google.clientId,clientSecret:google.clientSecret}},
       photon:{projectId:PROJECT_ID,ownerAddress:owner,line:'shared',dm},photonProjectSecret:'synthetic-project-secret',
       messageHandling:{databasePath:messagePath,workerIntervalMs:10,sendTimeoutMs:5000}};

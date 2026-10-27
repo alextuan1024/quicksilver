@@ -221,3 +221,9 @@ implementation tasks from operational choices and live checks.
 - [Photon cloud iMessage](https://photon.codes/docs/spectrum-ts/providers/imessage)
 - [Render Free services](https://render.com/docs/free)
 - [Render environment changes](https://render.com/docs/configure-environment-variables)
+
+## Render preparation
+
+The [disabled Render template and live trust gates](docs/render-preparation.md)
+are prepared for review. Applying the template would create paid resources and
+an initial disabled deployment; no service has been provisioned by this stage.

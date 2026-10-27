@@ -1,5 +1,29 @@
 # Progress and remaining V1 work — October 27, 2026
 
+## Render milestone checkpoint — October 27, 2026
+
+PR #5 is merged into `main` at `00b812c341189ec6272d5aa1f21e2bc4185396f3`.
+PR #6 is also merged, but into the old `feat/production-entrypoint-ci` base at
+`aa4093f3ad40196b3bb1661de6354a1549a576cd`, after PR #5 reached main. Consequently
+main does not yet contain PR #6's acceptance drills or latest-Node CI correction.
+The Render preparation branch carries those reviewed commits onto verified main
+so its next PR includes them explicitly. PR #6's final remote CI run
+`40537635189` passed both supported Node jobs at `b242a88`.
+
+[Render preparation](render-preparation.md) adds a disabled-only paid-service
+template and conditional trusted-proxy listener, with fixture coverage for
+secure OAuth/MCP, spoofed peers/headers, pause/restart and shutdown. The template
+validates against Render's fetched official JSON Schema. Independent code/security
+review passed 18 focused tests with no actionable findings. The clean-install
+full suite passed **218/218** on Node 22.23.4; source scan (93 files), docs checks
+(27 files/114 local links), dependency tree, whitespace and both dependency
+audits passed, with zero known vulnerabilities. Actual exclusive
+Render proxy addresses and forwarding-header guarantees are not established:
+live activation remains blocked. Provisioning, secrets, ongoing activation,
+retention, monitoring and live-provider acceptance remain external gates.
+
+Earlier counts and publication wording below are dated milestone history.
+
 ## Verified repository baseline
 
 PRs #1–#4 are merged into the private `alextuan1024/quicksilver` repository.
