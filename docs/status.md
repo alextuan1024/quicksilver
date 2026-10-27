@@ -1,20 +1,19 @@
-# Progress and remaining V1 work — October 26, 2026
+# Progress and remaining V1 work — October 27, 2026
 
 ## Verified repository baseline
 
-The durable-message and OAuth implementation PRs, plus docs PR #3, are merged
-into the private `alextuan1024/quicksilver` repository. The local feature branch
-starts from their verified main baseline,
-`da058749aebc1bbb6d18c3759106d45488448d81`:
+PRs #1–#4 are merged into the private `alextuan1024/quicksilver` repository.
+Production-entrypoint/CI work starts from freshly fetched `main` at
+`2b80a0b34d463cd84fab013f103b6a78dfff1b17` (PR #4's merge):
 
 | Work | Implementation head | Merged result |
 | --- | --- | --- |
 | Durable messaging and recovery | `78c4ce75f7e4d47ca860546676bab7a52d89cd7e` | [PR #1](https://github.com/alextuan1024/quicksilver/pull/1), merge `5f7c2140f0be1329fba4b9bafd8e71e952f21650` |
 | Local OAuth and dependency remediation | `9f7de7ada3a8c45a738a212dcb58470687471f01` | [PR #2](https://github.com/alextuan1024/quicksilver/pull/2), merge `b064f20c5edd01ac229ef00687bdb548294e58fa` |
 | Progress documentation | `907f25610c27f15685e5d0e42ef8313331909554` | [PR #3](https://github.com/alextuan1024/quicksilver/pull/3), merge `da058749aebc1bbb6d18c3759106d45488448d81` |
+| MCP replay and future-only Photon reconnect | `6cfb4316ff9b1c943a3240e6f588f0282b752e70` | [PR #4](https://github.com/alextuan1024/quicksilver/pull/4), merge `2b80a0b34d463cd84fab013f103b6a78dfff1b17` |
 
-Merge metadata was verified before feature work; this progress update rechecks
-the local commits and recorded verification results without fetching remote state. The declared runtime is **Node >=22.23.4 <23**, not Node 22.13 or 24.
+The PR #4 merge and current main were verified before this implementation. The declared runtime is **Node >=22.23.4 <23**, not Node 22.13 or 24.
 The known four dependency advisories were remediated with npm Undici 7.30.1 and
 coordinated Photon OpenTelemetry overrides at 0.219.0/core 2.8.0. The dated full
 and production audits reported zero known vulnerabilities; see the
@@ -50,9 +49,9 @@ are the implementation-stage results, not a test rerun or live acceptance claim
 for this documentation-only change. Earlier 82/117/140-test and Node 22.13 records
 are dated history, superseded for the current runtime and suite size.
 
-## Latest local implementation and verification
+## PR #4 implementation and verification
 
-The feature branch `feat/durable-replay-and-reconnect` contains:
+Merged PR #4 contains:
 
 | Local milestone | Commit |
 | --- | --- |
@@ -68,29 +67,42 @@ recovery and uncertain sends. Full and production audits report zero known
 vulnerabilities; the dependency tree is valid. The secret scan passed 56 source
 files, and changed-file secret, documentation and whitespace checks passed.
 
-These results belong to the implementation commit above; this documentation-only
-update does not rerun application tests or claim live acceptance. Implementation
-verification was local; check remote CI against the exact published PR commit.
-No GitHub Actions workflow is configured in this branch.
+These historical results belong to the PR #4 implementation commit above; they
+are local verification, not live acceptance or remote CI for this new change.
+There was no GitHub Actions workflow for PR #4. The production-entrypoint branch
+now adds CI; its remote result must be checked separately.
 See [the live host contract](photon-live.md), [MCP replay](event-replay.md), and the
 [implementation/verification record](superpowers/plans/2026-10-25-future-live.md).
 The optional [historical catch-up controller](photon-recovery.md) is preserved but
 is not a V1 launch requirement.
 
-## Production integration is unfinished
+## Production entry point and CI
 
-`server.mjs` still constructs `runtime.mjs`, whose Auth0 configuration selects the
-bounded in-memory proof. It does not select `messageHandling` or
-`createLocalMessageService` / `createPhotonMessageHost`. The new host factory
-requires trusted configuration and explicit `start()`;
-no environment variable activates it. The one-hour message activation ceiling
-also remains in the new composition. Merging the modules did not switch or deploy
-the runtime.
+The production-entrypoint branch adds [the production command](production-host.md):
+private JSON configuration, a direct HTTPS or loopback proxy listener, the composed
+Google OAuth/message/Photon host, and SIGTERM/SIGINT shutdown. Activation requires
+`--activate` and a fixed deadline at most one hour ahead; restarts cannot extend it.
+It retains persistent pause and uncertain-send safeguards. `npm start` still runs
+the parked proof; deployment must explicitly select `npm run start:production`.
 
-The last recorded live success is the [October 15 fixed-text proof](../PHOTON_TEST.md),
-followed by shutdown/disabled configuration. It does not establish ongoing general
-conversation, durable recovery or the local Google OAuth flow. This update did
-not inspect the current hosted service, real credentials or provider accounts.
+GitHub Actions CI now covers clean installs/full tests on Node 22.23.4 and latest
+Node 22, recursive secret scanning, docs, dependency tree/audits and whitespace.
+No deployment or provider credentials are part of CI. Local verification passed
+**210/210 tests on Node 22.23.4**, including ten production-entrypoint tests. The
+latest `node@22` selection resolves to the same version. Clean install, recursive
+secret scan, documentation links/anchors/fences, dependency tree and whitespace
+checks passed; full and production audits reported zero known vulnerabilities.
+Independent integration/security/CI review found **no actionable findings** and
+passed **10/10 production tests**, plus secret, docs and whitespace checks.
+Workflow configuration does not by itself establish passing remote CI. This stage
+is local: no push, PR, deployment, credentials or live activation.
+
+Hosting, real secrets, monitoring/edge controls and ongoing activation beyond one
+hour remain unfinished. The last recorded live success is the
+[October 15 fixed-text proof](../PHOTON_TEST.md), followed by shutdown/disabled
+configuration. It does not establish ongoing conversation, durable recovery or
+local Google OAuth acceptance. This work does not inspect or change the hosted
+service, real credentials or provider accounts.
 
 ## Reliability scope decision — October 25, 2026
 
@@ -123,18 +135,15 @@ operational setup and explicitly approved live acceptance:
    requests retain durable deduplication and conservative unknown-send handling.
 3. **Integrate the host into a production deployment and activation policy.** The
    explicit local host factory now composes OAuth, messages and the Photon lifecycle.
-   Supply the production HTTP/TLS listener, private storage, trusted configuration
-   and monitoring; the default server still selects the parked proof. Decide and
-   implement the
-   ongoing activation policy; do not automatically extend the current one-hour
-   limit. An Auth0-bound message database cannot be reopened under a Google `sub`:
+   The production listener and config loader now exist; select that command in the
+   chosen deployment and provision private storage, trusted secrets and monitoring.
+   Decide and implement the ongoing activation policy; do not automatically extend
+   the current one-hour limit. An Auth0-bound message database cannot be reopened under a Google `sub`:
    design and implement an operator-reviewed identity migration if such state
    must be retained. No migration command exists today.
-4. **Add CI.** No `.github/workflows` files are present; the OAuth commit had no
-   remote statuses, check runs or Actions runs. Recommended CI: clean install and
-   full tests on the supported Node floor/current supported Node 22, secret scan,
-   dependency audit/tree checks, documentation links and whitespace validation.
-   Keep provider fixtures and exclude real credentials/messages from CI.
+4. **Accept CI on the published change.** The workflow is implemented. Confirm
+   both supported Node jobs pass on the PR commit and configure required checks
+   under repository policy if desired. CI uses fixtures, never real credentials.
 5. **Choose and provision operations.** Select hosting/budget, a private persistent
    volume, TLS/proxy isolation and edge rate limits, monitoring, backup destination
    and restore ownership. Decide message/content, deduplication, OAuth tombstone

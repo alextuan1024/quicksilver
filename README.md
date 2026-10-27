@@ -5,20 +5,25 @@ the owner's Mac. Durable messaging, recovery controls and local OAuth are merged
 and locally tested; production integration and live acceptance remain unfinished.
 No separate LLM bot, arbitrary-recipient send tool, media or group support.
 
-## Current progress — October 26, 2026
+## Current progress — October 27, 2026
 
 Durable messaging/recovery and local OAuth/dependency fixes are merged through
 [PR #1](https://github.com/alextuan1024/quicksilver/pull/1) and
 [PR #2](https://github.com/alextuan1024/quicksilver/pull/2); the progress-doc update
 was merged through [PR #3](https://github.com/alextuan1024/quicksilver/pull/3).
 
-The local `feat/durable-replay-and-reconnect` branch now also implements durable
-MCP replay and future-only Photon reconnect/token renewal, including the real
-SDK adapter and explicit OAuth/message host composition. Implementation commit:
-`abf36788759773272fa64b702ec93fe376b704d7`. These changes are on the feature
-branch for review; they do not activate live messaging.
+Durable MCP replay and future-only Photon reconnect/token renewal, including the
+real SDK adapter and host composition, are merged through
+[PR #4](https://github.com/alextuan1024/quicksilver/pull/4) at `2b80a0b`.
 
-Latest verification: **200/200 tests** on Node 22.23.4; independent review passed
+The production-entrypoint branch adds an explicit
+[production command](docs/production-host.md), private configuration, HTTPS or
+loopback proxy listening, bounded activation and graceful shutdown, plus GitHub
+Actions CI. Deployment selection, provisioned hosting and real-provider acceptance
+remain outstanding. This branch passed **210/210 local tests on Node 22.23.4**;
+full/production audits reported zero known vulnerabilities.
+
+PR #4 verification: **200/200 tests** on Node 22.23.4; independent review passed
 **41 targeted tests** with no actionable findings. Full/production audits reported
 zero known vulnerabilities; secret, dependency and documentation checks passed.
 These are local fixture/loopback results, not live Google/Photon/ChatGPT acceptance.
@@ -26,8 +31,8 @@ The supported runtime remains **Node >=22.23.4 <23**.
 
 Historical Photon catch-up is deferred: messages sent during disconnects may be
 missed. Durable admitted requests, MCP replay and uncertain-send safeguards remain
-required. The default server still selects the parked Auth0 proof; no deployment
-or activation occurred. See [progress and remaining V1 tasks](docs/status.md).
+required. The default server still selects the parked Auth0 proof; production hosting uses
+the explicit `start:production` command. No deployment or activation occurred. See [progress and remaining V1 tasks](docs/status.md).
 
 ## Verified result — October 15, 2026
 

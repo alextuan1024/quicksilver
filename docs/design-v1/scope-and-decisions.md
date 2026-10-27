@@ -47,9 +47,10 @@ Locally implemented next-stage components: [MCP replay cursors](../event-replay.
 and an optional [generic catch-up controller](../photon-recovery.md), retained with
 its fixtures for deferred work. [Future-only live SDK/host composition](../photon-live.md)
 is now implemented and locally tested at `abf36788759773272fa64b702ec93fe376b704d7`
-on the feature branch: 200 full-suite tests and 41 independent targeted
-tests passed, with no actionable review findings. Still unfinished for V1: production
-listener/deployment integration and activation policy; real-provider acceptance;
+in merged PR #4: 200 full-suite tests and 41 independent targeted
+tests passed, with no actionable review findings. The next branch adds the
+[production listener/configuration](../production-host.md) and CI. Still unfinished
+for V1: deployment/provisioning and any ongoing activation policy; real-provider acceptance;
 and any required Auth0-to-Google message-store identity migration. The one-hour activation limit
 remains. OAuth snapshot restoration is not implemented: message recovery requires
 a fresh OAuth database and owner reconnection after fencing the old host.
@@ -66,8 +67,8 @@ a fresh OAuth database and owner reconnection after fencing the old host.
   the pinned SDK and actual line. Verify any send lookup/idempotency capability
   before relying on it; uncertain sends otherwise remain under operator review.
   Historical replay scope/retention is deferred, not a launch prerequisite.
-- CI for supported Node tests, secret/dependency checks and documentation validation;
-  no GitHub Actions workflow is currently configured.
+- Confirm the configured CI passes for the published production-entrypoint commit;
+  it covers supported Node tests, secret/dependency checks and documentation validation.
 - Interruption, duplicate/out-of-order, OAuth renewal/revocation and fenced restore
   drills in the integrated host, followed by explicit owner-approved bounded live
   acceptance and a controlled launch with pause/rollback and monitoring.

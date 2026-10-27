@@ -3,7 +3,8 @@
 The local authentication component is implemented behind explicit trusted host
 configuration. It uses `oidc-provider` 9.13.0 for OAuth and `openid-client` 6.8.8
 for Google OIDC. The existing `server.mjs` / `runtime.mjs` still use the parked
-Auth0 proof path. No environment variable switches them to local OAuth.
+Auth0 proof path. The explicit [production entry point](production-host.md)
+selects the durable host through private file configuration and `--activate`.
 
 ## Host contract
 
@@ -169,7 +170,7 @@ claims/replies. They do not establish live Google or ChatGPT acceptance.
 
 Before launch: provision credentials and persistent keys, validate the real
 Google/ChatGPT redirect and public-client behavior, choose retention/backup and
-hosting controls, implement the intentional production activation policy and
+hosting controls, choose any ongoing activation beyond the fixed one-hour policy and
 any required identity migration, and accept the fixture-tested future-only Photon
 live reconnect/token renewal with the real provider. Historical catch-up is deferred and is not a V1 launch gate.
 [MCP replay cursors](event-replay.md) are implemented locally. A generic

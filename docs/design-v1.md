@@ -4,7 +4,7 @@ Design checkpoint: October 23, 2026; implementation status updated October 26, 2
 Build an owner-only, general-text iMessage channel into the existing Athena,
 independent of the owner’s Mac, using one small always-on server with durable storage.
 Durable messaging/recovery and local OAuth/dependency remediation are merged in
-PRs #1 and #2. The local feature branch also implements MCP replay and
+PRs #1 and #2. Merged PR #4 also implements MCP replay and
 future-only Photon reconnect/renewal with SDK/host wiring. Its latest full suite
 passed 200 tests; independent review passed 41 targeted tests with no findings.
 Production deployment/activation and live acceptance remain unfinished; hosting
@@ -30,3 +30,7 @@ Read the following documents in order for the complete V1 design. The sections r
 - [Message handling and state](design-v1/message-handling.md) — Inbound requests, request-bound replies, and failure rules.
 - [Recovery and operations](design-v1/recovery-and-operations.md) — Subscriptions, future-only reconnect, deferred catch-up, monitoring, and backups.
 - [Scope and launch decisions](design-v1/scope-and-decisions.md) — V1 boundaries, acceptance checks, and remaining implementation, operational decisions and launch acceptance.
+
+The subsequent [production entry point](production-host.md) adds listener/configuration
+and fixed-deadline activation, plus CI. Deployment/provisioning and live acceptance
+remain gates.
