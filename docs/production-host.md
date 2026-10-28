@@ -74,11 +74,11 @@ Auth0-bound message data still requires a separately designed migration.
   `keyFile` with private absolute paths. TLS 1.2 is the minimum. Provision the
   certificate/chain for the public issuer; reload certificates by restarting the
   process under the same fixed activation deadline. Trust-proxy behavior is off.
-- **`render`:** explicit `0.0.0.0` HTTP listener with an exact trusted proxy IP
-  allowlist, pinned Host and strict forwarded-HTTPS validation. CLI `PORT` must
-  match the configured port. This is conditional preparation: actual exclusive
-  ingress addresses and header behavior remain unverified. See the
-  [Render trust gate and disabled template](render-preparation.md).
+- **`render`:** explicit `0.0.0.0` HTTP origin behind Render's documented HTTPS
+  edge. CLI `PORT` must match the configured port. Pin exactly one Host to the
+  configured issuer, discard caller forwarding metadata and supply application-owned
+  HTTPS context to OAuth. Network peers gain no authentication privileges. See the
+  [fixed-origin security model and disabled template](render-preparation.md).
 
 Ports are integers from 0–65535 (0 is for local fixtures). Production should use
 a fixed port. Edge rate limits, firewall rules, DNS, certificates, storage, secret

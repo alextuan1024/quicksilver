@@ -12,7 +12,7 @@ export const redirect='https://chatgpt.example/oauth/callback';
 export const scope='quicksilver:messages';
 export const verifier='a'.repeat(64);
 export const challenge=createHash('sha256').update(verifier).digest('base64url');
-export async function oauthFixture(t,create,{addressOf}={}) {
+export async function oauthFixture(t,create,{addressOf,requestHeaders={},localAddress}={}) {
   const dir=mkdtempSync(join(tmpdir(),'qs-local-auth-'));
   const signing=await generateKeyPair('RS256',{extractable:true});
   const googleKey=await generateKeyPair('RS256',{extractable:true});
@@ -50,9 +50,9 @@ export async function oauthFixture(t,create,{addressOf}={}) {
   await start();
   async function request(path,{method='GET',form,json,raw,headers={}}={}) {
     const res=await new Promise((resolve,reject)=>{
-      const req=httpRequest(address+path,{method,headers:{host:'quicksilver.example','x-forwarded-proto':'https',
+      const req=httpRequest(address+path,{method,localAddress,headers:{host:'quicksilver.example','x-forwarded-proto':'https',
         cookie:[...cookies].filter(([k])=>{const p=cookiePaths.get(k)??'/';return path.split('?')[0]===p||path.startsWith(p.endsWith('/')?p:p+'/');}).map(([k,v])=>`${k}=${v}`).join('; '),
-        ...(form?{'content-type':'application/x-www-form-urlencoded'}:{}),...(json?{'content-type':'application/json'}:{}),...headers}},response=>{
+        ...(form?{'content-type':'application/x-www-form-urlencoded'}:{}),...(json?{'content-type':'application/json'}:{}),...requestHeaders,...headers}},response=>{
         let text='';response.setEncoding('utf8');response.on('data',chunk=>{text+=chunk;});
         response.on('end',()=>resolve({status:response.statusCode,headers:response.headers,text}));
         response.on('error',reject);

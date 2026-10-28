@@ -45,11 +45,10 @@ test('production config refuses unsafe listener, expired/rolling deadlines, inje
     c=>c.messageHandling.databasePath=c.localOAuth.databasePath,
     c=>c.messageHandling.databasePath='relative.sqlite',
     c=>c.listener.trustedProxyAddresses=['127.0.0.1'],
-    c=>c.listener={mode:'render',host:'0.0.0.0',port:10000},
     c=>c.listener={mode:'render',host:'0.0.0.0',port:10000,trustedProxyAddresses:[]},
-    ...['*','10.0.0.0/8','0.0.0.0','::','localhost'].map(peer=>c=>c.listener={mode:'render',host:'0.0.0.0',port:10000,trustedProxyAddresses:[peer]}),
-    c=>c.listener={mode:'render',host:'127.0.0.1',port:10000,trustedProxyAddresses:['127.0.0.1']},
-    c=>c.listener={mode:'render',host:'0.0.0.0',port:10000,trustedProxyAddresses:['127.0.0.1','::ffff:127.0.0.1']},
+    c=>c.listener={mode:'render',host:'0.0.0.0',port:10000,trustedProxyAddresses:['127.0.0.1']},
+    c=>c.listener={mode:'render',host:'127.0.0.1',port:10000},
+    c=>c.listener={mode:'render',host:'0.0.0.0',port:10000,certFile:'/private/cert',keyFile:'/private/key'},
   ]){
     const bad=structuredClone(f.config);mutate(bad);writeFileSync(f.path,JSON.stringify(bad));
     assert.throws(()=>loadProductionConfig(f.path),/invalid_production_configuration/);
@@ -61,7 +60,7 @@ test('production config refuses unsafe listener, expired/rolling deadlines, inje
 });
 
 test('Render CLI refuses missing/mismatched PORT before opening storage',async t=>{
-  const f=fixture(t);f.config.listener={mode:'render',host:'0.0.0.0',port:10000,trustedProxyAddresses:['127.0.0.1']};f.save();
+  const f=fixture(t);f.config.listener={mode:'render',host:'0.0.0.0',port:10000};f.save();
   assert.equal(loadProductionConfig(f.path).localOAuth.trustProxy,true);
   for(const env of [{},{PORT:'10001'}]){
     const child=spawn(process.execPath,['production-server.mjs','--config',f.path,'--activate'],{env,stdio:'ignore'});

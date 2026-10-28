@@ -18,7 +18,7 @@ export async function until(check,label='condition') {
   assert.fail(`Timed out waiting for ${label}`);
 }
 
-export async function productionDrill(t,{listener={mode:'proxy',host:'127.0.0.1',port:0}}={}) {
+export async function productionDrill(t,{listener={mode:'proxy',host:'127.0.0.1',port:0},requestHeaders,localAddress}={}) {
   const secret='whsec_'+randomBytes(32).toString('base64');
   const callbacks=[],sends=[],subscriptions=[],unexpected=[];let holdCallbacks=false,callbackError,messagePath;
   const receiver=createServer(async(req,res)=>{
@@ -95,7 +95,7 @@ export async function productionDrill(t,{listener={mode:'proxy',host:'127.0.0.1'
       };
     }catch(error){child.kill('SIGKILL');await exited;throw error;}
     finally{clearTimeout(timer);}
-  },{addressOf:child=>child.address});
+  },{addressOf:child=>child.address,requestHeaders,localAddress});
 
   const rpc=(token,method,params={})=>f.request('/mcp',{method:'POST',headers:{authorization:`Bearer ${token}`},json:{jsonrpc:'2.0',id:1,method,params}});
   const tool=async(token,name,args={})=>{

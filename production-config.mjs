@@ -1,7 +1,6 @@
 import {openSync,closeSync,fstatSync,readFileSync,lstatSync,realpathSync,constants} from 'node:fs';
 import {isAbsolute,resolve,dirname} from 'node:path';
 import {isIP} from 'node:net';
-import {addressKey} from './platform-listener.mjs';
 
 const fail=()=>{throw new Error('invalid_production_configuration');};
 function fields(value,required,optional=[]) {
@@ -36,14 +35,10 @@ export function validateProductionConfig(config,now=Date.now()) {
   const deadline=Date.parse(config.expiresAt);
   if(typeof config.expiresAt!=='string'||!Number.isFinite(deadline)||deadline<=now||deadline>now+3600000)fail();
   const listener=config.listener;
-  fields(listener,['mode','host','port'],['certFile','keyFile','trustedProxyAddresses']);
+  fields(listener,['mode','host','port'],['certFile','keyFile']);
   if(!Number.isSafeInteger(listener.port)||listener.port<0||listener.port>65535||!isIP(listener.host))fail();
-  if(listener.mode!=='render'&&listener.trustedProxyAddresses!==undefined)fail();
   if(listener.mode==='render'){
-    if(listener.host!=='0.0.0.0'||listener.certFile!==undefined||listener.keyFile!==undefined||
-      !Array.isArray(listener.trustedProxyAddresses)||listener.trustedProxyAddresses.length<1||listener.trustedProxyAddresses.length>32)fail();
-    const peers=listener.trustedProxyAddresses.map(addressKey);
-    if(new Set(peers).size!==peers.length||peers.includes(addressKey('0.0.0.0'))||peers.includes(addressKey('::')))fail();
+    if(listener.host!=='0.0.0.0'||listener.certFile!==undefined||listener.keyFile!==undefined)fail();
   }else if(listener.mode==='proxy'){
     if(!['127.0.0.1','::1'].includes(listener.host)||listener.certFile!==undefined||listener.keyFile!==undefined)fail();
   }else if(listener.mode==='tls'){

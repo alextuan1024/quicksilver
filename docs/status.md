@@ -1,26 +1,35 @@
 # Progress and remaining V1 work — October 27, 2026
 
-## Render milestone checkpoint — October 27, 2026
+## Render fixed-origin checkpoint — October 27, 2026
 
-PR #5 is merged into `main` at `00b812c341189ec6272d5aa1f21e2bc4185396f3`.
-PR #6 is also merged, but into the old `feat/production-entrypoint-ci` base at
-`aa4093f3ad40196b3bb1661de6354a1549a576cd`, after PR #5 reached main. Consequently
-main does not yet contain PR #6's acceptance drills or latest-Node CI correction.
-The Render preparation branch carries those reviewed commits onto verified main
-so its next PR includes them explicitly. PR #6's final remote CI run
-`40537635189` passed both supported Node jobs at `b242a88`.
+PR #7 is merged into `main` at `cece0b521d44062af8461f412cfb38b0f186077f`,
+including the complete PR #6 acceptance drills and latest-Node CI correction.
+PR #6 had previously merged into the old feature branch after PR #5 reached main;
+PR #7 recovered those changes. The fetched main tree exactly matches reviewed
+PR #7 head `11b121b`; its remote CI run `40539438178` passed both Node jobs.
 
-[Render preparation](render-preparation.md) adds a disabled-only paid-service
-template and conditional trusted-proxy listener, with fixture coverage for
-secure OAuth/MCP, spoofed peers/headers, pause/restart and shutdown. The template
-validates against Render's fetched official JSON Schema. Independent code/security
-review passed 18 focused tests with no actionable findings. The clean-install
-full suite passed **218/218** on Node 22.23.4; source scan (93 files), docs checks
-(27 files/114 local links), dependency tree, whitespace and both dependency
-audits passed, with zero known vulnerabilities. Actual exclusive
-Render proxy addresses and forwarding-header guarantees are not established:
-live activation remains blocked. Provisioning, secrets, ongoing activation,
-retention, monitoring and live-provider acceptance remain external gates.
+The fixed-origin branch starts from that verified main. Independent architecture
+review found that PR #7's exact ingress-IP requirement was unnecessarily
+restrictive for the app's OAuth/MCP security invariants. The Render adapter now
+pins the raw Host to the configured HTTPS issuer, discards all incoming forwarding
+metadata and supplies application-owned HTTPS context to the OAuth library.
+Private callers have the same owner/token requirements as public callers.
+No undisclosed Render IP range or header-rewriting contract is required. The
+[security model](render-preparation.md) documents the remaining platform transport
+assumption and actual-host acceptance steps.
+
+Independent implementation review passed **19/19 focused tests** with no findings,
+including valid OAuth/MCP replay and negative owner/nonce/PKCE/browser-binding
+cases from a private fixture address with forged forwarding headers. The disabled
+bootstrap/template remain unchanged and require no provider credentials to become
+healthy. Provisioning, secrets, ongoing activation, retention, monitoring and
+live-provider acceptance remain external gates; no deployment was performed.
+
+The clean-install full suite passed **219/219** on Node 22.23.4. Source scan
+(93 files), docs checks (27 files/115 local links), dependency tree, whitespace
+and full/production audits passed, with zero known vulnerabilities. Independent
+architecture, implementation and documentation reviews have no outstanding findings.
+Check the new PR's exact head for its remote CI result.
 
 Earlier counts and publication wording below are dated milestone history.
 

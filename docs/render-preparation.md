@@ -1,6 +1,6 @@
 # Render preparation — disabled by default
 
-This is local preparation, not a provisioned or live-ready service. The reviewed
+This is local preparation, not a provisioned or activated service. The reviewed
 [Blueprint](../deploy/render.yaml) creates paid resources and an initial disabled
 deployment **if applied**. It has not been applied. Auto-deploy being off prevents
 later Git-triggered deploys, not the initial creation/deploy.
@@ -23,22 +23,26 @@ opens no storage and creates no provider clients. Exact `GET /livez` returns fix
 disabled health; every other route returns 503. There is no environment switch
 from bootstrap to live mode. SIGTERM/SIGINT drain it and close stalled sockets.
 
-## TLS and proxy trust: unresolved live gate
+## Fixed external HTTPS origin
 
 Official Render documentation says public HTTPS terminates at its load balancer,
 then forwards HTTP to the application port, which is not directly public. It also
 allows private connections from other services in the same workspace and region.
-A fresh single-service workspace reduces exposure but does not establish a
-request's provenance. Render's Express example recommends `trust proxy: 1`;
-that does not document exclusive ingress addresses or which incoming forwarding
-headers are removed or overwritten.
+A private caller is an untrusted client with the same authentication requirements
+as a public caller. Network location is not an owner identity. The reviewed
+design therefore does not need exclusive ingress IPs or authoritative incoming
+forwarding headers. PR #7's exact-IP requirement was an unnecessarily restrictive
+deployment assumption; the fixed-origin design replaces it.
 
-No verified proxy address list or header-normalization guarantee was established
-from these sources. **Do not activate the live host on Render until this boundary
-is established.** An observed source IP, private subnet, hop count or copied
-`X-Forwarded-Proto` value is insufficient. Obtain an authoritative exclusive peer
-and header contract (including address changes and private callers), or redesign
-around an independently authenticated ingress. The code does not guess this data.
+`oidc-provider` documents TLS offloading as a normal deployment. Its Koa contexts
+use the request scheme/host for some endpoint and interaction URLs, as well as
+secure-cookie handling, even with a fixed issuer. Before every application
+handler, the Render listener requires exactly one raw Host matching the canonical
+configured issuer, removes `Forwarded`, all `X-Forwarded-*` and `X-Real-IP` from
+both header representations, then inserts one application-owned
+`X-Forwarded-Proto: https`. That value expresses the explicit deployment's fixed
+external scheme; it is never copied from the request or used as authentication.
+This covers contexts created by both the provider callback and interaction APIs.
 
 The optional production listener shape is:
 
@@ -46,26 +50,52 @@ The optional production listener shape is:
 {
   "mode": "render",
   "host": "0.0.0.0",
-  "port": 10000,
-  "trustedProxyAddresses": ["REPLACE_ONLY_WITH_VERIFIED_EXCLUSIVE_PROXY_IP"]
+  "port": 10000
 }
 ```
 
-This deliberately invalid placeholder is not usable configuration. Empty lists,
-wildcards, CIDRs, names, duplicate/unspecified addresses and TLS-file fields are
-rejected. The production CLI requires explicit `PORT` matching the config before
-opening storage. Requests must come from an exact allowlisted socket peer, have
-exactly one pinned issuer Host and one `X-Forwarded-Proto: https`, and contain no
-`Forwarded` or `X-Forwarded-Host`, including empty/duplicate variants. IPv4-mapped
-IPv6 is normalized. X-Forwarded-For is removed before application handling.
-Headers alone cannot grant peer trust. Issuer/resource, HTTPS OAuth redirects,
-secure cookies, owner/client binding and browser-origin checks remain enforced.
+This is only the listener section, not a complete activation config. The production
+CLI still requires explicit `PORT` matching the config before opening storage.
+The old `trustedProxyAddresses` field is rejected rather than silently ignored;
+remove it when reviewing an unactivated PR #7 configuration. TLS-file fields are
+also invalid for this edge-terminated mode. Loopback proxy and direct TLS modes
+retain their existing transport checks.
 
-Only exact `GET /livez` bypasses that boundary, returning fixed process liveness
+Only exact `GET /livez` bypasses the Host check, returning fixed process liveness
 without invoking OAuth or the message host. It reveals no provider/storage state.
 It stays healthy when paused, expired or disconnected: use `/healthz` through the
-trusted boundary and operator transport monitoring for application acceptance.
+pinned Host and operator transport monitoring for application acceptance.
 The shutdown fence runs before liveness. Liveness never authorizes activation.
+
+### Security invariants and transport assumptions
+
+- Host poisoning cannot change the issuer, resource, discovery endpoints or
+  callback URLs: raw duplicate/mismatched Hosts fail, and forwarding claims are
+  discarded. Generated provider URLs use the pinned Host and application-owned
+  HTTPS scheme. The real `Origin`, `Cookie` and `Authorization` remain intact.
+- Private HTTP callers can fetch public discovery or begin an OAuth transaction,
+  just as public callers can. They cannot acquire another browser's Secure cookies
+  or stored interaction binding by supplying headers. Google owner subject,
+  state, nonce, browser binding, single-use code and S256 PKCE checks still apply.
+- MCP requires an owner/client/audience/scope-bound token and live grant. Browser
+  Origin checks and token rotation/revocation are unchanged. A stolen bearer token
+  already permits replay through the public endpoint; IP filtering is not token
+  binding. No operator methods become HTTP-accessible.
+- This mode assumes the documented Render public edge provides HTTPS and the
+  platform protects the internal transport. It does not encrypt the internal
+  HTTP hop, claim a socket is TLS, or defend against a compromised platform or
+  network observer. Do not expose this listener as a public plaintext origin on
+  another host. Use direct TLS or an appropriate secured topology there.
+- Retain a dedicated workspace and minimal service access. Private callers can
+  bypass edge-only rate limits, so application body/time limits and bounded OAuth
+  queues remain relevant. Do not treat private callers as privileged or use a
+  forwarded address for authorization or abuse controls.
+
+The minimum platform evidence is Render's documented external HTTPS/internal HTTP
+model and the configured service/issuer topology. No undisclosed proxy-IP list or
+support assurance about forwarding-header rewriting is needed by this adapter.
+Actual public HTTPS, canonical-host routing and provider compatibility still need
+acceptance after separately approved provisioning; local fixtures do not prove them.
 
 ## Storage, shutdown and activation
 
@@ -92,7 +122,7 @@ Use encrypted application message backups and separately escrow keys. Platform
 disk snapshots do not replace the application's fenced restore procedure or
 OAuth recovery plan. Never run an old and restored host together.
 
-After the ingress gate and all [required identity values](deploy-readiness.md)
+After host setup and all [required identity values](deploy-readiness.md)
 are verified, live selection is a separate approved command change to
 `node production-server.mjs --config /var/data/quicksilver/production-config.local.json --activate`.
 It still requires a fixed approved deadline no more than one hour ahead. Ordinary
@@ -104,8 +134,9 @@ supervisor may roll the deadline forward. Historical catch-up remains deferred.
 1. Approve fresh workspace/service/disk creation, current price/budget and region.
    After merge, provision only the disabled template and verify health, runtime,
    disk persistence, private ownership and process termination.
-2. Establish the exclusive proxy-peer and forwarding-header contract, or choose
-   another authenticated ingress topology. Until then keep the live host disabled.
+2. Verify the configured public issuer uses Render's HTTPS edge and the deployed
+   listener is only the platform's internal HTTP origin. Check canonical Host,
+   fixed HTTPS discovery/redirects and Secure cookies during authorized acceptance.
 3. Record the actual HTTPS hostname/issuer, exact MCP client/callbacks, Google
    client and owner subject, RSA/cookie keys, Photon owner/line/secret, backup
    escrow and monitoring ownership. Decide whether existing Auth0 state matters.
@@ -125,15 +156,19 @@ Read on October 27, 2026:
 - [Private networking and same-workspace reachability](https://render.com/docs/private-network)
 - [Health-check Host and response behavior](https://render.com/docs/health-checks)
 - [Authentication example and proxy recommendation](https://render.com/articles/how-to-implement-authentication-and-authorization)
+- [Official oidc-provider TLS-offloading guidance](https://github.com/panva/node-oidc-provider/blob/main/docs/README.md#trusting-tls-offloading-proxies)
 - [Default PORT/environment variables](https://render.com/docs/environment-variables)
 - [Compute plan naming](https://render.com/docs/compute-plans)
 - [Persistent disks, shutdown limits and backup caveats](https://render.com/docs/disks)
 - [Blueprint specification](https://render.com/docs/blueprint-spec) and
   [official JSON Schema](https://render.com/schema/render.yaml.json)
 
-The Blueprint validates against the fetched official schema locally. Fixture
+The Blueprint validates against the fetched official schema locally. The design
+was independently reviewed against the official guidance and installed
+`oidc-provider` 9.13.0/Koa URL and cookie behavior. Fixture
 tests exercise real OAuth/MCP HTTP through the Render guard, secure callbacks and
 cookies, refresh/revocation, owner filtering, future-only reconnect/replay,
-spoofed/duplicate headers, untrusted socket peers, persistent pause/restart,
+spoofed/duplicate headers, unauthenticated private callers, owner/PKCE/browser
+binding rejection through the actual listener, persistent pause/restart,
 disabled startup and shutdown. They do not verify Render's ingress or live
 Google/Photon/ChatGPT compatibility. No infrastructure or runtime settings changed.

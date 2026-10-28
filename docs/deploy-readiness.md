@@ -12,9 +12,9 @@ for the exact JSON shape and command.
 | --- | --- | --- |
 | Hosting and budget | One always-on process; private persistent storage; an agreed monthly ceiling | Preferred: fresh Render Hobby workspace, Starter compute and 5 GB disk. Creation/spend is not authorized; see [prepared choices](render-preparation.md). |
 | Runtime | Node >=22.23.4 <23 | Tested locally on 22.23.4; provision the supported version on the host. |
-| Listener mode | Loopback `proxy`, direct `tls`, or explicitly trusted `render` ingress | Render preparation uses port 10000; exclusive proxy-peer addresses and header contract remain a live blocker. |
+| Listener mode | Loopback `proxy`, direct `tls`, or fixed-external-origin `render` | Render uses port 10000, canonical issuer Host and application-owned HTTPS context; no ingress-IP allowlist or caller forwarding claims. |
 | Public identity | Canonical root HTTPS `localOAuth.issuer`, and its exact `/mcp` resource | Actual hostname, DNS and issuer/resource values still need verification. |
-| TLS/proxy | TLS cert/key paths for direct TLS; otherwise exact Host and sanitized forwarding headers | Certificate provisioning, edge rate limits and firewall/proxy isolation remain host setup. |
+| TLS/proxy | TLS cert/key paths for direct TLS; trusted proxy normalization for loopback; documented edge HTTPS and internal origin for Render | Confirm actual HTTPS/issuer routing during authorized setup. Render mode discards incoming forwarding headers and generates its fixed scheme locally. |
 | Storage | Distinct absolute `localOAuth.databasePath` and `messageHandling.databasePath`; pre-existing private owned parent directories | Actual volume/mount/paths and single-process ownership must be chosen and verified. |
 | Config/secrets | Private owned regular config file, mode 0600; private regular TLS files when used | Host secret delivery and access control are not provisioned. No automatic key generation or env fallback exists. |
 | MCP client | Exact `clientId` and 1–4 registered HTTPS `redirectUris` | Obtain/verify the real ChatGPT client ID and callbacks; public client uses PKCE S256 and no client secret. |

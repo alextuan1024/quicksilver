@@ -1,24 +1,19 @@
-import {isIP} from 'node:net';
-
-// Map IPv4 and IPv4-mapped IPv6 peers to the same exact address. No CIDRs,
-// wildcard trust, hop counts, or client-provided address headers are accepted.
-export function addressKey(value) {
-  const family=typeof value==='string'?isIP(value):0;
-  if(!family)throw new Error('invalid_proxy_address');
-  return new URL(`http://[${family===4?'::ffff:'+value:value}]/`).hostname;
-}
-export function platformGuard(listener,issuer) {
-  const peers=new Set(listener.trustedProxyAddresses.map(addressKey));
-  const host=new URL(issuer).host;
+// Explicit Render deployment mode: public TLS terminates at the platform edge.
+// Supply the configured external origin to proxy-aware OAuth internals without
+// trusting any caller's forwarding metadata or treating network peers as users.
+export function renderOriginGuard(issuer) {
+  const url=new URL(issuer),host=url.host;
+  if(url.protocol!=='https:')throw new Error('invalid_external_origin');
+  const forwarding=name=>name==='forwarded'||name.startsWith('x-forwarded-')||name==='x-real-ip';
   return req=>{
-    let peer;try{peer=addressKey(req.socket.remoteAddress);}catch{return false;}
-    if(!peers.has(peer))return false;
     const count=name=>req.rawHeaders.filter((_,i)=>i%2===0&&req.rawHeaders[i].toLowerCase()===name).length;
-    if(count('host')!==1||count('x-forwarded-proto')!==1||count('forwarded')||count('x-forwarded-host'))return false;
-    if(req.headers.host!==host||req.headers['x-forwarded-proto']!=='https')return false;
-    // Never expose a client-selected IP to downstream proxy-aware libraries.
-    delete req.headers['x-forwarded-for'];
-    req.rawHeaders=req.rawHeaders.filter((_,i)=>req.rawHeaders[i-i%2].toLowerCase()!=='x-forwarded-for');
+    if(count('host')!==1||req.headers.host!==host)return false;
+    for(const name of Object.keys(req.headers))if(forwarding(name.toLowerCase()))delete req.headers[name];
+    req.rawHeaders=req.rawHeaders.filter((_,i)=>!forwarding(req.rawHeaders[i-i%2].toLowerCase()));
+    // oidc-provider uses this for secure cookies AND URL construction, including
+    // contexts created outside its callback middleware (interactionDetails).
+    req.headers['x-forwarded-proto']='https';
+    req.rawHeaders.push('X-Forwarded-Proto','https');
     return true;
   };
 }
