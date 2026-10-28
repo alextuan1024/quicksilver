@@ -6,9 +6,11 @@ open databases, generate application credentials or assign an owner. It returns
 the cryptographically verified Google `sub` to the initiating browser once.
 This is separate from `production-server.mjs --activate`, which starts Photon.
 
-This implementation depends on the fixed-origin Render listener in PR #8. Merge
-and verify the required code before selecting a deployment revision. PR #9's
-deployment handoff is separate; neither draft is assumed merged here.
+This implementation uses the fixed-origin Render listener from merged PR #8.
+PR #9's deployment handoff is also merged; both are present on main at
+`58f3effd782837437b428507d7d3851797ec51a4`. The verifier itself still requires
+review and merge before selecting a deployment revision. Repository merges do
+not change the deployed service or authorize credential access/live activation.
 
 ## Proposed next authorization bundle
 
