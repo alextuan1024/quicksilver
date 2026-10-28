@@ -224,6 +224,11 @@ implementation tasks from operational choices and live checks.
 
 ## Render preparation
 
+Before live activation, use the separately selected
+[temporary Google owner verifier](docs/owner-verification.md) to obtain a verified
+owner subject without starting Photon or MCP. It requires explicit operational
+approval, a private setup ticket and a fixed deadline of at most ten minutes.
+
 The [disabled Render template and fixed-origin security model](docs/render-preparation.md)
 are prepared for review. Applying the template would create paid resources and
 an initial disabled deployment; no service has been provisioned by this stage.
